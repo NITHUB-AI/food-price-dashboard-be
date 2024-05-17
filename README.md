@@ -12,23 +12,18 @@ To run this Flask app, first clone this repo
 git clone https://github.com/NITHUB-AI/food-price-dashboard-be.git
 ```
 
-After cloning the repo, navigate to the folder and create a virtual environment
+After cloning the repo, navigate to the folder and create a virtual environment and activate it
 
-```
+```bash
 cd food-price-dashboard-be
 python3 -m venv env
+source env/bin/activate
 ```
 
 Then, install the dependencies
 
 ```bash
 pip install -r requriements.txt
-```
-
-Before running the app, activate the virtual environment:
-
-```bash
-source env/bin/activate
 ```
 
 Remember to create a `.env` file to put in the environment variable before running the application. What the `.env` file should contain is defined in the `.env.example` file.
