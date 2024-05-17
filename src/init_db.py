@@ -9,18 +9,6 @@ conn = psycopg2.connect(
     password=os.getenv("PASSWORD"),
 )
 
-# with conn.cursor() as cur:
-#     cur.execute(
-#         """
-#         SELECT table_name
-#         FROM information_schema.tables
-#         WHERE table_schema = 'public'
-#     """
-#     )
-
-#     print("Tables in the database:", [row[0] for row in cur])
-
-
 with conn.cursor() as cur:
     cur.execute(
         """
