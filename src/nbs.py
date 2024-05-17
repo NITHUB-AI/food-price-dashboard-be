@@ -166,6 +166,7 @@ class AveragePricePerYear(Resource):
         return jsonify({"data": data})
 
 
+# http://127.0.0.1:5000/nbs/percentage/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/percentage/")
 class AveragePercentage(Resource):
     """Returns the average percentage of the category chosen over the years."""
@@ -211,6 +212,7 @@ class AveragePercentage(Resource):
         return jsonify({"data": data})
 
 
+# http://127.0.0.1:5000/nbs/latest-price/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/latest-price/")
 class LatestPrice(Resource):
     """ "Returns the latest price of the category picked."""
