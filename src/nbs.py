@@ -48,7 +48,7 @@ class FilterByYear(Resource):
             records = cur.fetchall()
 
             for record in records:
-                data = [{"date": record[0], "value": record[1]} for record in records]
+                data = [{"date": record[0], "value": record[1]}]
         return jsonify({"data": data})
 
 
@@ -63,6 +63,7 @@ class AveragePrice(Resource):
 
         with get_db_connection().cursor() as cur:
             cur.execute(
+                # TODO: update this query
                 """
                 SELECT item_type, AVG(price) AS average_price
                 FROM "Cleaned-Food-Prices"
@@ -122,7 +123,7 @@ class YearlyAvergarePrice(Resource):
 
 # http://127.0.0.1:5000/nbs/average-price-over-years/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/average-price-over-years/")
-class AveragePricePerYear(Resource):
+class AveragePriceOverYears(Resource):
     """Returns the average price of the years of the category chosen"""
 
     def get(self):
@@ -199,7 +200,6 @@ class AveragePercentage(Resource):
             result = cur.fetchone()
 
             min_year, max_year, min_price, max_price = result
-            print(min_year, max_year, min_price, max_price)
 
             # Calculating the percentage change
             percentage_change = ((max_price - min_price) / min_price) * 100
@@ -215,7 +215,7 @@ class AveragePercentage(Resource):
 # http://127.0.0.1:5000/nbs/latest-price/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/latest-price/")
 class LatestPrice(Resource):
-    """ "Returns the latest price of the category picked."""
+    """ "Returns the latest price of the category picked for the month."""
 
     def get(self):
         food_item = request.args.get("food_item")
