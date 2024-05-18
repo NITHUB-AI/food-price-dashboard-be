@@ -13,7 +13,8 @@ with conn.cursor() as cur:
     cur.execute(
         """
         SELECT * FROM "Cleaned-Food-Prices"
-        LIMIT 10
+        WHERE food_item = 'tomato' AND item_type = 'tomato' AND category = '150 g' AND vendor_type = 'Supermarket'
+        LIMIT 40
     """
     )
     rows = cur.fetchall()
