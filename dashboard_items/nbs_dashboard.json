@@ -3,31 +3,15 @@
         "local": [
             "1 kg"
         ],
-        "agric": [
-            "1 piece",
-            "1 kg"
-        ],
         "imported": [
-            "1 kg"
-        ],
-        "medium grained": [
-            "1 kg"
-        ],
-        "ofada": [
             "1 kg"
         ]
     },
     "fish": {
-        "mudfish": [
-            "1 kg"
-        ],
         "fish": [
             "1 kg"
         ],
         "catfish smoked": [
-            "1 kg"
-        ],
-        "catfish smofked": [
             "1 kg"
         ]
     },
@@ -44,9 +28,6 @@
     },
     "beef": {
         "boneless": [
-            "1 kg"
-        ],
-        "bone in": [
             "1 kg"
         ]
     },
