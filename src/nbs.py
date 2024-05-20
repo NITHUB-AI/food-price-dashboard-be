@@ -63,7 +63,7 @@ class AveragePrice(Resource):
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                # TODO: update this query
+                # TODO: update this query (?_)
                 """
                 SELECT item_type, AVG(price) AS average_price
                 FROM "Cleaned-Food-Prices"
@@ -167,47 +167,61 @@ class AveragePriceOverYears(Resource):
         return jsonify({"data": data})
 
 
-# http://127.0.0.1:5000/nbs/percentage/?food_item=oil&item_type=vegetable&category=1%20ltr
+# http://127.0.0.1:5000/nbs/percentage/?food_item=oil&item_type=vegetable&category=1%20ltr&year=2018
 @api.route("/percentage/")
-class AveragePercentage(Resource):
-    """Returns the average percentage of the category chosen over the years."""
+class Percentage(Resource):
+    """Returns the percentage of the category chosen between the current month and previous month within a particular year."""
 
     def get(self):
         food_item = request.args.get("food_item")
         item_type = request.args.get("item_type")
         category = request.args.get("category")
+        year = request.args.get("year")
 
         with get_db_connection().cursor() as cur:
-            # Calculate the average price for each year and fetch min/max years and prices
             cur.execute(
                 """
-                WITH YearlyAverage AS (
-                    SELECT EXTRACT(YEAR FROM CAST(date AS DATE)) AS year, AVG(price) AS average_price
+                WITH MonthlyPrices AS (
+                    SELECT
+                        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
+                        price
                     FROM "Cleaned-Food-Prices"
-                    WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS'
-                    GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE))
+                    WHERE food_item = %s
+                        AND item_type = %s
+                        AND category = %s
+                        AND source = 'NBS'
+                        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
+                ),
+                LatestMonths AS (
+                    SELECT
+                        month,
+                        price,
+                        LAG(price, 1) OVER (ORDER BY month) AS previous_month_price
+                    FROM MonthlyPrices
                 )
-                SELECT 
-                    MIN(year) AS min_year, 
-                    MAX(year) AS max_year,
-                    (SELECT average_price FROM YearlyAverage WHERE year = (SELECT MIN(year) FROM YearlyAverage)) AS min_price,
-                    (SELECT average_price FROM YearlyAverage WHERE year = (SELECT MAX(year) FROM YearlyAverage)) AS max_price
-                FROM YearlyAverage
+                SELECT
+                    month,
+                    price AS current_month_price,
+                    previous_month_price,
+                    COALESCE(((price - previous_month_price) / previous_month_price) * 100, 0) AS percentage_change
+                FROM LatestMonths
+                WHERE month = EXTRACT(MONTH FROM CURRENT_DATE)
+                    AND previous_month_price IS NOT NULL;
+
                 """,
-                (food_item, item_type, category),
+                (food_item, item_type, category, year),
             )
 
             result = cur.fetchone()
 
-            min_year, max_year, min_price, max_price = result
-
-            # Calculating the percentage change
-            percentage_change = ((max_price - min_price) / min_price) * 100
-
-            data = {
-                "years": f"{int(min_year)} to {int(max_year)}",
-                "percentage_change": f"{percentage_change:.2f}%",
-            }
+            data = [
+                {
+                    "month": result[0],
+                    "current_month_price": "{:.2f}".format(float(result[1])),
+                    "previous_month_price": "{:.2f}".format(float(result[2])),
+                    "percentage_change": "{:.2f}".format(float(result[3])),
+                }
+            ]
 
         return jsonify({"data": data})
 

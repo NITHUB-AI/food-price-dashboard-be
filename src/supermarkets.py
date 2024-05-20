@@ -127,6 +127,7 @@ class LatestPrice(Resource):
         return jsonify({"data": data})
 
 
+# http://127.0.0.1:5000/supermarkets/average-price/?food_item=tomato&year=2024
 @api.route("/average-price/")
 class AveragePrice(Resource):
     """Returns the average price of all the item_types of the food_item chosen in a particular year."""
@@ -137,29 +138,164 @@ class AveragePrice(Resource):
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                # TODO: Fix this query; something is wrong somewhere i think
+                # TODO: Update this query
                 """
-            SELECT item_type, EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(daily_avg_price) AS yearly_avg_price
-            FROM (
-                SELECT item_type, date, AVG(price) AS daily_avg_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s 
-                AND vendor_type = 'Supermarket'
-                AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
-                GROUP BY item_type, date
-            ) AS daily_averages
-            GROUP BY item_type, EXTRACT(MONTH FROM CAST(date AS DATE))
-            ORDER BY item_type, month;
-        """,
+            SELECT item_type, AVG(price) AS average_price
+            FROM "Cleaned-Food-Prices"
+            WHERE food_item = %s AND vendor_type = 'Supermarket'
+              AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
+              AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)
+            GROUP BY item_type
+            ORDER BY item_type;
+            """,
                 (food_item, year),
             )
             records = cur.fetchall()
-            print(records)
             data = [
                 {
                     "item_type": row[0],
-                    "yearly_avg_price": "{:.2f}".format(float(row[1])),
+                    "average_price": "{:.2f}".format(float(row[1])),
                 }
                 for row in records
             ]
         return jsonify({"data": data})
+
+
+@api.route("/yearly-average-price/")
+class YearlyAveragePrice(Resource):
+    """Returns the average price over the year for the food_item, item_type and category chosen."""
+
+    def get(self):
+        food_item = request.args.get("food_item")
+        item_type = request.args.get("item_type")
+        category = request.args.get("category")
+        year = request.args.get("year")
+
+        with get_db_connection().cursor() as cur:
+            cur.execute(
+                """
+            SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
+            FROM "Cleaned-Food-Prices"
+            WHERE food_item = %s
+              AND item_type = %s
+              AND category = %s
+            AND vendor_type = 'Supermarket'
+              AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
+            GROUP BY EXTRACT(MONTH FROM CAST(date AS DATE))
+            ORDER BY EXTRACT(MONTH FROM CAST(date AS DATE));
+            """,
+                (food_item, item_type, category, year),
+            )
+            records = cur.fetchall()
+            data = [
+                {
+                    "month": int(row[0]),
+                    "monthly_avg_price": "{:.2f}".format(float(row[1])),
+                }
+                for row in records
+            ]
+        return jsonify({"data": data})
+
+
+# http://127.0.0.1:5000/supermarkets/monthly-average-price/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
+@api.route("/monthly-average-price/")
+class MonthlyAverage(Resource):
+    """Returns the current monthly average price for the food_item, item_type and category chosen."""
+
+    def get(self):
+        food_item = request.args.get("food_item")
+        item_type = request.args.get("item_type")
+        category = request.args.get("category")
+
+        with get_db_connection().cursor() as cur:
+            cur.execute(
+                """
+            SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
+            FROM "Cleaned-Food-Prices"
+            WHERE food_item = %s
+              AND item_type = %s
+              AND category = %s
+            AND vendor_type = 'Supermarket'
+              AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)
+            GROUP BY EXTRACT(MONTH FROM CAST(date AS DATE))
+            ORDER BY EXTRACT(MONTH FROM CAST(date AS DATE));
+            """,
+                (food_item, item_type, category),
+            )
+            records = cur.fetchall()
+            data = [
+                {
+                    "month": int(row[0]),
+                    "monthly_avg_price": "{:.2f}".format(float(row[1])),
+                }
+                for row in records
+            ]
+        return jsonify({"data": data})
+
+
+@api.route("/percentage/")
+class Percentage(Resource):
+    """Returns the percentage of the category chosen between the current month and previous month within a particular year."""
+
+    def get(self):
+        food_item = request.args.get("food_item")
+        item_type = request.args.get("item_type")
+        category = request.args.get("category")
+        year = request.args.get("year")
+
+        with get_db_connection().cursor() as cur:
+            cur.execute(
+                # TODO: fix query
+                """
+WITH DailyAverages AS (
+    SELECT
+        date,
+        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
+        AVG(price) AS avg_price
+    FROM "Cleaned-Food-Prices"
+    WHERE food_item = %s
+        AND item_type = %s
+        AND category = %s
+        AND vendor_type = 'Supermarket'
+        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
+    GROUP BY date
+),
+MonthlyAverages AS (
+    SELECT
+        month,
+        AVG(avg_price) AS monthly_avg_price
+    FROM DailyAverages
+    GROUP BY month
+),
+MonthToMonthChange AS (
+    SELECT
+        month,
+        monthly_avg_price,
+        LAG(monthly_avg_price, 1) OVER (ORDER BY month) AS previous_month_avg_price
+    FROM MonthlyAverages
+)
+SELECT
+    month,
+    monthly_avg_price,
+    previous_month_avg_price,
+    COALESCE(((monthly_avg_price - previous_month_avg_price) / previous_month_avg_price) * 100, 0) AS percentage_change
+FROM MonthToMonthChange
+WHERE month = EXTRACT(MONTH FROM CURRENT_DATE)
+    AND previous_month_avg_price IS NOT NULL;
+
+
+            """,
+                (food_item, item_type, category, year),
+            )
+
+            records = cur.fetchone()
+            print(records)
+            # data = [
+            #     {
+            #         "month": records[0],
+            #         "monthly_avg_price": records[1],
+            #         "previous_month_avg_price": records[2],
+            #         "percentage_change": records[3],
+            #     }
+            # ]
+            # return jsonify({"data": data})
