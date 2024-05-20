@@ -1,0 +1,117 @@
+{
+    "rice": {
+        "local": [
+            "1 kg"
+        ],
+        "agric": [
+            "1 piece",
+            "1 kg"
+        ],
+        "imported": [
+            "1 kg"
+        ],
+        "medium grained": [
+            "1 kg"
+        ],
+        "ofada": [
+            "1 kg"
+        ]
+    },
+    "fish": {
+        "mudfish": [
+            "1 kg"
+        ],
+        "fish": [
+            "1 kg"
+        ],
+        "catfish smoked": [
+            "1 kg"
+        ],
+        "catfish smofked": [
+            "1 kg"
+        ]
+    },
+    "chicken": {
+        "frozen": [
+            "1 unit"
+        ],
+        "wings": [
+            "1 kg"
+        ],
+        "feet": [
+            "1 kg"
+        ]
+    },
+    "beef": {
+        "boneless": [
+            "1 kg"
+        ],
+        "bone in": [
+            "1 kg"
+        ]
+    },
+    "milk": {
+        "evaporated tin": [
+            "1 unit"
+        ]
+    },
+    "oil": {
+        "vegetable": [
+            "1 ltr"
+        ],
+        "groundnut": [
+            "1 ltr"
+        ],
+        "palm": [
+            "1 ltr"
+        ]
+    },
+    "garri": {
+        "yellow": [
+            "1 kg"
+        ],
+        "white": [
+            "1 kg"
+        ]
+    },
+    "potato": {
+        "sweet": [
+            "1 kg"
+        ],
+        "irish": [
+            "1 kg"
+        ]
+    },
+    "eggs": {
+        "agric": [
+            "1 dozen",
+            "1 piece"
+        ]
+    },
+    "bread": {
+        "unsliced": [
+            "1 loaf"
+        ],
+        "sliced": [
+            "1 loaf"
+        ]
+    },
+    "beans": {
+        "brown": [
+            "1 kg"
+        ],
+        "white black eye": [
+            "1 kg"
+        ]
+    },
+    "tomato": {
+        "tomato": [
+            "1 kg"
+        ]
+    },
+    "yam": {
+        "tuber": [
+            "1 kg"
+        ]
+    }
+}

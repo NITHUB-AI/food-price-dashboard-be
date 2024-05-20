@@ -12,10 +12,24 @@ conn = psycopg2.connect(
 with conn.cursor() as cur:
     cur.execute(
         """
-        SELECT * FROM "Cleaned-Food-Prices"
-        WHERE food_item = 'tomato' AND item_type = 'tomato' AND category = '150 g' AND vendor_type = 'Supermarket'
-        LIMIT 40
-    """
+        SELECT
+        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
+        price
+        FROM "Cleaned-Food-Prices"
+        WHERE food_item = 'tomato'
+        AND source = 'NBS'
+        ORDER BY date DESC;
+        """
+        # """
+        # SELECT DISTINCT food_item, item_type, category
+        # FROM "Cleaned-Food-Prices"
+        # WHERE vendor_type = 'Supermarket';
+        # """
+        #     """
+        #     SELECT * FROM "Cleaned-Food-Prices"
+        #     WHERE food_item = 'tomato' AND item_type = 'tomato' AND category = '150 g' AND vendor_type = 'Supermarket'
+        #     LIMIT 40
+        # """
     )
     rows = cur.fetchall()
     column_names = [desc[0] for desc in cur.description]

@@ -46,9 +46,10 @@ class FilterByYear(Resource):
 
             # Fetch all results
             records = cur.fetchall()
-
-            for record in records:
-                data = [{"date": record[0], "value": record[1]}]
+            data = [
+                {"date": record[0], "value": float("{:.2f}".format(record[1]))}
+                for record in records
+            ]
         return jsonify({"data": data})
 
 
@@ -63,7 +64,6 @@ class AveragePrice(Resource):
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                # TODO: update this query (?_)
                 """
                 SELECT item_type, AVG(price) AS average_price
                 FROM "Cleaned-Food-Prices"
@@ -73,12 +73,11 @@ class AveragePrice(Resource):
                 (food_item, year),
             )
 
-            # Fetch all results
             records = cur.fetchall()
             data = [
                 {
                     "item_type": record[0],
-                    "average_price": "{:.2f}".format(float(record[1])),
+                    "average_price": float("{:.2f}".format(record[1])),
                 }
                 for record in records
             ]
@@ -113,7 +112,7 @@ class YearlyAvergarePrice(Resource):
             data = [
                 {
                     "year": int(record[0]),
-                    "average_price": "{:.2f}".format(float(record[1])),
+                    "average_price": float(f"{record[1]:.2f}"),
                 }
                 for record in records
             ]
@@ -134,96 +133,76 @@ class AveragePriceOverYears(Resource):
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                    SELECT MIN(EXTRACT(YEAR FROM CAST(date AS DATE))) AS min_year,
-                           MAX(EXTRACT(YEAR FROM CAST(date AS DATE))) AS max_year,
-                           AVG(price) AS average_price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS'
+                SELECT EXTRACT(YEAR FROM CAST(date AS DATE)) AS year,
+                    AVG(price) AS average_price
+                FROM "Cleaned-Food-Prices"
+                WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS'
+                GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE))
+                ORDER BY year;
+
                 """,
                 (food_item, item_type, category),
             )
 
-            result = cur.fetchone()
-            if not result or result[0] is None or result[1] is None:
-                return (
-                    jsonify(
-                        {"error": "No data available for the specified parameters"}
-                    ),
-                    404,
-                )
+            records = cur.fetchall()
 
-            min_year, max_year, average_price = result
-            if average_price is None:
-                return (
-                    jsonify({"error": "No price data found for the available years"}),
-                    404,
-                )
-
-            data = {
-                "years": f"{int(min_year)} to {int(max_year)}",
-                "average_price": f"{average_price:.2f}",
-            }
+            data = [
+                {"year": int(year), "average_price": float(f"{average_price:.2f}")}
+                for year, average_price in records
+            ]
 
         return jsonify({"data": data})
 
 
-# http://127.0.0.1:5000/nbs/percentage/?food_item=oil&item_type=vegetable&category=1%20ltr&year=2018
+# http://127.0.0.1:5000/nbs/percentage/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/percentage/")
 class Percentage(Resource):
-    """Returns the percentage of the category chosen between the current month and previous month within a particular year."""
+    """Returns the percentage of the category chosen between the most recent month and previous month."""
 
     def get(self):
         food_item = request.args.get("food_item")
         item_type = request.args.get("item_type")
         category = request.args.get("category")
-        year = request.args.get("year")
 
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                WITH MonthlyPrices AS (
                     SELECT
-                        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
-                        price
+                        EXTRACT(MONTH FROM CURRENT_DATE) AS month,
+                        price AS current_month_price,
+                        LAG(price) OVER (ORDER BY EXTRACT(MONTH FROM CURRENT_DATE)) AS previous_month_price
                     FROM "Cleaned-Food-Prices"
                     WHERE food_item = %s
                         AND item_type = %s
                         AND category = %s
                         AND source = 'NBS'
-                        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
-                ),
-                LatestMonths AS (
-                    SELECT
-                        month,
-                        price,
-                        LAG(price, 1) OVER (ORDER BY month) AS previous_month_price
-                    FROM MonthlyPrices
-                )
-                SELECT
-                    month,
-                    price AS current_month_price,
-                    previous_month_price,
-                    COALESCE(((price - previous_month_price) / previous_month_price) * 100, 0) AS percentage_change
-                FROM LatestMonths
-                WHERE month = EXTRACT(MONTH FROM CURRENT_DATE)
-                    AND previous_month_price IS NOT NULL;
-
-                """,
-                (food_item, item_type, category, year),
+                        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    ORDER BY date DESC
+                    LIMIT 2;
+                    """,
+                (food_item, item_type, category),
             )
 
-            result = cur.fetchone()
-
-            data = [
-                {
-                    "month": result[0],
-                    "current_month_price": "{:.2f}".format(float(result[1])),
-                    "previous_month_price": "{:.2f}".format(float(result[2])),
-                    "percentage_change": "{:.2f}".format(float(result[3])),
+            records = cur.fetchone()
+            if records:
+                month, current_month_price, previous_month_price = records
+                percentage_change = (
+                    (
+                        (current_month_price - previous_month_price)
+                        / previous_month_price
+                        * 100
+                    )
+                    if previous_month_price
+                    else 0
+                )
+                data = {
+                    "month": month,
+                    "current_month_price": float(f"{current_month_price:.2f}"),
+                    "previous_month_price": float(f"{previous_month_price:.2f}"),
+                    "percentage_change": float(f"{percentage_change:.2f}"),
                 }
-            ]
 
-        return jsonify({"data": data})
+        return jsonify(data)
 
 
 # http://127.0.0.1:5000/nbs/latest-price/?food_item=oil&item_type=vegetable&category=1%20ltr
@@ -248,8 +227,8 @@ class LatestPrice(Resource):
                 (food_item, item_type, category),
             )
 
-            result = cur.fetchone()
-            price, date = result
+            records = cur.fetchone()
+            price, date = records
 
             data = {"date": date, "price": f"{price:.2f}"}
         return jsonify({"data": data})

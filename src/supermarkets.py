@@ -247,55 +247,69 @@ class Percentage(Resource):
             cur.execute(
                 # TODO: fix query
                 """
-WITH DailyAverages AS (
-    SELECT
-        date,
-        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
-        AVG(price) AS avg_price
-    FROM "Cleaned-Food-Prices"
-    WHERE food_item = %s
-        AND item_type = %s
-        AND category = %s
-        AND vendor_type = 'Supermarket'
-        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
-    GROUP BY date
-),
-MonthlyAverages AS (
-    SELECT
-        month,
-        AVG(avg_price) AS monthly_avg_price
-    FROM DailyAverages
-    GROUP BY month
-),
-MonthToMonthChange AS (
-    SELECT
-        month,
-        monthly_avg_price,
-        LAG(monthly_avg_price, 1) OVER (ORDER BY month) AS previous_month_avg_price
-    FROM MonthlyAverages
-)
-SELECT
-    month,
-    monthly_avg_price,
-    previous_month_avg_price,
-    COALESCE(((monthly_avg_price - previous_month_avg_price) / previous_month_avg_price) * 100, 0) AS percentage_change
-FROM MonthToMonthChange
-WHERE month = EXTRACT(MONTH FROM CURRENT_DATE)
-    AND previous_month_avg_price IS NOT NULL;
-
-
+                WITH DailyAverages AS (
+                    SELECT
+                        DATE(date) AS day,  -- Ensure date is truncated to the day part only
+                        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
+                        EXTRACT(YEAR FROM CAST(date AS DATE)) AS year,
+                        AVG(price) AS avg_daily_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = %s
+                        AND item_type = %s
+                        AND category = %s
+                        AND vendor_type = 'Supermarket'
+                    GROUP BY DATE(date), EXTRACT(YEAR FROM CAST(date AS DATE)), EXTRACT(MONTH FROM CAST(date AS DATE))
+                ),
+                MonthlyAverages AS (
+                    SELECT
+                        year,
+                        month,
+                        AVG(avg_daily_price) AS avg_monthly_price
+                    FROM DailyAverages
+                    GROUP BY year, month
+                ),
+                MonthToMonthComparison AS (
+                    SELECT
+                        year,
+                        month,
+                        avg_monthly_price,
+                        LAG(avg_monthly_price) OVER (PARTITION BY year ORDER BY month) AS previous_month_avg_price
+                    FROM MonthlyAverages
+                )
+                SELECT
+                    month,
+                    avg_monthly_price,
+                    previous_month_avg_price,
+                    CASE 
+                        WHEN previous_month_avg_price IS NOT NULL THEN
+                            ((avg_monthly_price - previous_month_avg_price) / previous_month_avg_price) * 100
+                        ELSE
+                            NULL  -- Handling cases where there is no previous month data
+                    END AS percentage_change
+                FROM MonthToMonthComparison
+                WHERE 
+                    year = EXTRACT(YEAR FROM CURRENT_DATE) AND 
+                    month = EXTRACT(MONTH FROM CURRENT_DATE);
             """,
                 (food_item, item_type, category, year),
             )
 
             records = cur.fetchone()
+            # (
+            #     current_month,
+            #     avg_monthly_price,
+            #     previous_month_avg_price,
+            #     percentage_change,
+            # ) = records
             print(records)
             # data = [
             #     {
-            #         "month": records[0],
-            #         "monthly_avg_price": records[1],
-            #         "previous_month_avg_price": records[2],
-            #         "percentage_change": records[3],
+            #         "current_month": current_month,
+            #         "avg_monthly_price": avg_monthly_price,
+            #         "previous_month_avg_price": previous_month_avg_price,
+            #         "percentage_change": (
+            #             percentage_change if percentage_change is not None else "N/A"
+            #         ),
             #     }
             # ]
             # return jsonify({"data": data})
