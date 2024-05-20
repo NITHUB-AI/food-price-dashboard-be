@@ -1,13 +1,16 @@
 import os
+import sys
 import psycopg2
 
 from flask import Flask, jsonify, request, Request
 from flask_restx import Api, Resource
 
-from .src.nbs import api as nbs_api
-from .src.supermarkets import api as supermarkets_api
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
 
-# from src.nbs import api as nbs_api
+from src.nbs import api as nbs_api
+from src.supermarkets import api as supermarkets_api
+
 
 app = Flask(__name__)
 
