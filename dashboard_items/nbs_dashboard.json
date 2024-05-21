@@ -1,34 +1,59 @@
 {
-    "rice": {
-        "local": [
-            "1 kg"
+    "beans": {
+        "brown": [
+            "1000 g"
         ],
-        "imported": [
-            "1 kg"
+        "white black eye": [
+            "1000 g"
         ]
     },
-    "fish": {
-        "fish": [
-            "1 kg"
+    "beef": {
+        "bone in": [
+            "1000 g"
         ],
-        "catfish smoked": [
-            "1 kg"
+        "boneless": [
+            "1000 g"
+        ]
+    },
+    "bread": {
+        "sliced": [
+            "1 loaf"
+        ],
+        "unsliced": [
+            "1 loaf"
         ]
     },
     "chicken": {
+        "feet": [
+            "1000 g"
+        ],
         "frozen": [
             "1 unit"
         ],
         "wings": [
-            "1 kg"
-        ],
-        "feet": [
-            "1 kg"
+            "1000 g"
         ]
     },
-    "beef": {
-        "boneless": [
-            "1 kg"
+    "eggs": {
+        "agric": [
+            "12 pcs",
+            "1 pcs"
+        ]
+    },
+    "fish": {
+        "catfish smoked": [
+            "1000 g"
+        ],
+        "fish": [
+            "1000 g"
+        ]
+    },
+    "garri": {
+        "white": [
+            "1000 g"
+        ],
+        "yellow": [
+            "1000 g"
         ]
     },
     "milk": {
@@ -37,62 +62,43 @@
         ]
     },
     "oil": {
-        "vegetable": [
-            "1 ltr"
-        ],
         "groundnut": [
-            "1 ltr"
+            "1000 ml"
         ],
         "palm": [
-            "1 ltr"
-        ]
-    },
-    "garri": {
-        "yellow": [
-            "1 kg"
+            "1000 ml"
         ],
-        "white": [
-            "1 kg"
+        "vegetable": [
+            "1000 ml"
         ]
     },
     "potato": {
-        "sweet": [
-            "1 kg"
-        ],
         "irish": [
-            "1 kg"
-        ]
-    },
-    "eggs": {
-        "agric": [
-            "1 dozen",
-            "1 piece"
-        ]
-    },
-    "bread": {
-        "unsliced": [
-            "1 loaf"
+            "1000 g"
         ],
-        "sliced": [
-            "1 loaf"
+        "sweet": [
+            "1000 g"
         ]
     },
-    "beans": {
-        "brown": [
-            "1 kg"
+    "rice": {
+        "imported": [
+            "1000 g"
         ],
-        "white black eye": [
-            "1 kg"
+        "local": [
+            "1000 g"
+        ],
+        "ofada": [
+            "1000 g"
         ]
     },
     "tomato": {
         "tomato": [
-            "1 kg"
+            "1000 g"
         ]
     },
     "yam": {
         "tuber": [
-            "1 kg"
+            "1000 g"
         ]
     }
 }
