@@ -58,6 +58,7 @@ class FilterByYear(Resource):
 class AveragePrice(Resource):
     """Returns the average price of all the item_types of the food_item chosen in a particular year."""
 
+    # TODO: Still in the works
     def get(self):
         food_item = request.args.get("food_item")
         year = request.args.get("year")
@@ -65,11 +66,29 @@ class AveragePrice(Resource):
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                SELECT item_type, AVG(price) AS average_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s AND source = 'NBS' AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
-                GROUP BY item_type;
-            """,
+                    WITH NormalizedPrices AS (
+                        SELECT
+                            item_type,
+                            CASE
+                                WHEN category LIKE '%g' THEN price / (NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float / 1000)
+                                WHEN category LIKE '%ml' THEN price / (NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float / 1000)
+                                WHEN category LIKE '%pcs' OR category LIKE '%piece' THEN price / NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float
+                                ELSE price
+                            END AS normalized_price
+                            FROM "Cleaned-Food-Prices"
+                            WHERE food_item = %s
+                            AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s AND source = 'NBS'
+                        ),
+                        Averages AS (
+                            SELECT
+                                item_type,
+                                AVG(normalized_price) AS average_price
+                            FROM NormalizedPrices
+                            GROUP BY item_type
+                        )
+                        SELECT * FROM Averages;
+
+                """,
                 (food_item, year),
             )
 
@@ -77,7 +96,7 @@ class AveragePrice(Resource):
             data = [
                 {
                     "item_type": record[0],
-                    "average_price": float("{:.2f}".format(record[1])),
+                    "average_price": float(f"{record[1]:.2f}"),
                 }
                 for record in records
             ]
@@ -87,8 +106,8 @@ class AveragePrice(Resource):
 
 # http://127.0.0.1:5000/nbs/yearly-average-price/?food_item=oil&item_type=vegetable&category=1%20ltr
 @api.route("/yearly-average-price/")
-class YearlyAvergarePrice(Resource):
-    """Returns tha average price over the years of the food item, item type and category chosen."""
+class YearlyAveragePrice(Resource):
+    """Returns the current year's average price of the food item, item type and category chosen."""
 
     def get(self):
         food_item = request.args.get("food_item")
@@ -98,23 +117,25 @@ class YearlyAvergarePrice(Resource):
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                    SELECT EXTRACT(YEAR FROM CAST(date AS DATE)) AS year, AVG(price) AS average_price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS'
-                    GROUP BY year
-                    ORDER BY year;
+                SELECT
+                EXTRACT(YEAR FROM CURRENT_DATE) AS year,
+                price AS average_price
+                FROM "Cleaned-Food-Prices"
+                WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS' AND
+                EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
+
                 """,
                 (food_item, item_type, category),
             )
 
-            records = cur.fetchall()
+            records = cur.fetchone()
+            year, average_price = records
 
             data = [
                 {
-                    "year": int(record[0]),
-                    "average_price": float(f"{record[1]:.2f}"),
+                    "year": int(year),
+                    "average_price": float(f"{average_price:.2f}"),
                 }
-                for record in records
             ]
 
         return jsonify({"data": data})
@@ -220,7 +241,7 @@ class LatestPrice(Resource):
                 """
                 SELECT price, date
                 FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s AND item_type = %s AND category = %s
+                WHERE food_item = %s AND item_type = %s AND category = %s AND source = 'NBS'
                 ORDER BY date DESC
                 LIMIT 1
             """,

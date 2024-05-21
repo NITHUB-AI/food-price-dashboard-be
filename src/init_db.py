@@ -12,11 +12,8 @@ conn = psycopg2.connect(
 with conn.cursor() as cur:
     cur.execute(
         """
-        SELECT
-        EXTRACT(MONTH FROM CAST(date AS DATE)) AS month,
-        price
-        FROM "Cleaned-Food-Prices"
-        WHERE food_item = 'tomato'
+        SELECT * FROM "Cleaned-Food-Prices"
+        WHERE food_item = 'rice'
         AND source = 'NBS'
         ORDER BY date DESC;
         """
