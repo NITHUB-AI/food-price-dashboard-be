@@ -1,8 +1,11 @@
 import os
 import psycopg2
 
+from datetime import datetime
 from flask import jsonify, request
 from flask_restx import Resource, Namespace
+
+from src.utils import *
 
 
 def get_db_connection():
@@ -133,31 +136,21 @@ class AveragePrice(Resource):
     """Returns the average price of all the item_types of the food_item chosen in a particular year."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        year = request.args.get("year")
+        food_item = str(request.args.get("food_item"))
+        earliest_month = str(datetime.now().date())[:-2] + "01"
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                # TODO: Update this query
+                f"""
+                    SELECT
+                    date, item_type, category, price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = '{food_item}' AND vendor_type = 'Supermarket' AND date >= '{earliest_month}'
+                    ORDER BY date DESC
                 """
-            SELECT item_type, AVG(price) AS average_price
-            FROM "Cleaned-Food-Prices"
-            WHERE food_item = %s AND vendor_type = 'Supermarket'
-              AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
-              AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)
-            GROUP BY item_type
-            ORDER BY item_type;
-            """,
-                (food_item, year),
             )
             records = cur.fetchall()
-            data = [
-                {
-                    "item_type": row[0],
-                    "average_price": "{:.2f}".format(float(row[1])),
-                }
-                for row in records
-            ]
+            data = current_month_record(records, food_item)
         return jsonify({"data": data})
 
 

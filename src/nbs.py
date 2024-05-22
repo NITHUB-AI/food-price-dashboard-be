@@ -1,5 +1,6 @@
 import os
 import psycopg2
+import json
 
 from flask import jsonify, request
 from flask_restx import Resource, Namespace
@@ -19,6 +20,12 @@ api = Namespace("NBS", description="NBS food price data operations")
 
 
 # http://127.0.0.1:5000/nbs/year/?food_item=oil&item_type=vegetable&category=1000%20ml&year=2017
+
+with open("dashboard_items/nbs_dashboard.json", "r") as file:
+    nbs_dashboard_file = json.load(file)
+
+
+# http://127.0.0.1:5000/nbs/year/?food_item=oil&item_type=vegetable&category=1%20ltr&year=2017
 @api.route("/year/")
 class FilterByYear(Resource):
     """Returns the prices over the specified year and the year before for a particular food item, item type, and category."""
@@ -60,53 +67,38 @@ class AverageItemTypesPrice(Resource):
 
     # TODO: Still in the works
     def get(self):
-        food_item = request.args.get("food_item")
-        year = request.args.get("year")
+        food_item = str(request.args.get("food_item"))
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                """
-                    WITH NormalizedPrices AS (
-                        SELECT
-                            item_type,
-                            CASE
-                                WHEN category LIKE '%g' THEN price / (NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float / 1000)
-                                WHEN category LIKE '%ml' THEN price / (NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float / 1000)
-                                WHEN category LIKE '%pcs' OR category LIKE '%piece' THEN price / NULLIF(REGEXP_REPLACE(category, '\D', '', 'g'), '')::float
-                                ELSE price
-                            END AS normalized_price
-                            FROM "Cleaned-Food-Prices"
-                            WHERE food_item = %s
-                            AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s AND source = 'NBS'
-                        ),
-                        Averages AS (
-                            SELECT
-                                item_type,
-                                AVG(normalized_price) AS average_price
-                            FROM NormalizedPrices
-                            GROUP BY item_type
-                        )
-                        SELECT * FROM Averages;
-
+                f""" 
+                SELECT c.date, c.item_type, c.category, c.price 
+                FROM "Cleaned-Food-Prices" as c
+                WHERE food_item = '{food_item}' AND source = 'NBS';
+                ORDER BY date DESC 
                 """,
-                (food_item, year),
             )
 
             records = cur.fetchall()
-            data = [
-                {
-                    "item_type": record[0],
-                    "average_price": float(f"{record[1]:.2f}"),
-                }
-                for record in records
-            ]
+            # nbs_item = nbs_dashboard_file[f"{food_item}"
 
-        return jsonify({"data": data})
+            # for i, v in
+            print(records)
+        #     data = [
+        #         {
+        #             "item_type": record[0],
+        #             "average_price": float(f"{record[1]:.2f}"),
+        #         }
+        #         for record in records
+        #     ]
+        return jsonify({"data": records})
+        # return jsonify({"data": data})
+
 
 # http://127.0.0.1:5000/nbs/average-price-over-years/?food_item=oil&item_type=vegetable&category=1000%20ml
 @api.route("/average-price-over-years/")
 class AveragePriceOverYears(Resource):
-    """Returns the average price in each year for a particular food item, item type and category. """
+    """Returns the average price in each year for a particular food item, item type and category."""
 
     def get(self):
         food_item = request.args.get("food_item")
@@ -170,7 +162,9 @@ class MonthOnMonthPercentage(Resource):
                 month, current_month_price, previous_month_price = records
                 percentage_change = (
                     (
-                        (current_month_price - previous_month_price) * 100 / previous_month_price
+                        (current_month_price - previous_month_price)
+                        * 100
+                        / previous_month_price
                     )
                     if previous_month_price
                     else 0
@@ -183,6 +177,7 @@ class MonthOnMonthPercentage(Resource):
                 }
 
         return jsonify(data)
+
 
 # http://127.0.0.1:5000/nbs/yoy-percentage/?food_item=oil&item_type=vegetable&category=1000%20ml
 @api.route("/yoy-percentage/")
@@ -213,7 +208,9 @@ class YearOnYearPercentage(Resource):
                 (year, current_year_price), (_, previous_year_price) = records
                 percentage_change = (
                     (
-                        (current_year_price - previous_year_price) * 100 / previous_year_price
+                        (current_year_price - previous_year_price)
+                        * 100
+                        / previous_year_price
                     )
                     if previous_year_price
                     else 0
