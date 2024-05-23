@@ -137,20 +137,31 @@ class AveragePrice(Resource):
 
     def get(self):
         food_item = str(request.args.get("food_item"))
-        earliest_month = str(datetime.now().date())[:-2] + "01"
+        # earliest_month = str(datetime.now().date())[:-2] + "01"
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                f"""
-                    SELECT
-                    date, item_type, category, price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE food_item = '{food_item}' AND vendor_type = 'Supermarket' AND date >= '{earliest_month}'
-                    ORDER BY date DESC
+                """
+                WITH latest AS (
+                SELECT *, DATE_TRUNC('month', MAX(date) OVER()::timestamp) AS max 
+                FROM "Cleaned-Food-Prices" 
+                WHERE category IS NOT NULL AND LENGTH(category) > 0
+                AND food_item = '{food_item}'
+            ), datapoints AS (
+                SELECT item_type, category, price, price / (category::numeric) AS unit_price
+                FROM latest
+                WHERE DATE_TRUNC('month', date::timestamp) = max
+            ) 
+            SELECT item_type, AVG(unit_price) 
+            FROM datapoints 
+            GROUP BY item_type;
                 """
             )
             records = cur.fetchall()
-            data = current_month_record(records, food_item)
+            data = [
+                {"item_type": row[0], "value": "{:.2f}".format(float(row[1]))}
+                for row in records
+            ]
         return jsonify({"data": data})
 
 
