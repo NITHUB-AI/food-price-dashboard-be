@@ -18,6 +18,7 @@ def get_db_connection():
 
 api = Namespace("NBS", description="NBS food price data operations")
 
+conversion_dictionary = {"g": [1000, "kg"], "ml": [1000, "L"], "pcs": [1, "pcs"]}
 
 # http://127.0.0.1:5000/nbs/year/?food_item=oil&item_type=vegetable&category=1000%20ml&year=2017
 
@@ -71,35 +72,53 @@ class AverageItemTypesPrice(Resource):
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                SELECT 
-                SPLIT_PART(category, ' ', 2) AS unit,  -- Extracts the unit part (e.g., 'g', 'ml')
-                item_type, 
-                AVG(price) AS average_price
-            FROM 
-                "Cleaned-Food-Prices"
-            WHERE 
-                food_item = %s AND 
-                source = 'NBS'
-            GROUP BY 
-                item_type, 
-                SPLIT_PART(category, ' ', 2)
-            ORDER BY 
-                item_type;
+                WITH latest AS (
+                    SELECT *, DATE_TRUNC('month', MAX(CAST(date AS TIMESTAMP)) OVER()) AS max 
+                    FROM "Cleaned-Food-Prices" 
+                    WHERE category IS NOT NULL AND LENGTH(category) > 0
+                    AND food_item = %s AND source = 'NBS'
+                ), datapoints AS (
+                    SELECT 
+                        item_type, 
+                        category, 
+                        price, 
+                        SPLIT_PART(category, ' ', 1) AS numeric_part,
+                        SPLIT_PART(category, ' ', 2) AS unit,
+                        price / NULLIF(CAST(SPLIT_PART(category, ' ', 1) AS numeric), 0) AS unit_price
+                    FROM latest
+                    WHERE DATE_TRUNC('month', CAST(date AS TIMESTAMP)) = max
+                ) 
+                SELECT item_type, AVG(unit_price) AS average_price, unit, MIN(numeric_part) AS min_numeric_part, MAX(price) AS max_price
+                FROM datapoints 
+                GROUP BY item_type, unit;
                 """,
                 (food_item,),
             )
 
             records = cur.fetchall()
-            print(records)
 
-            data = [
-                {
-                    "unit": record[0],
-                    "item_type": record[1],
-                    "average_price": float(f"{record[2]:.2f}"),
-                }
-                for record in records
-            ]
+            data = []
+            for record in records:
+                item_type, average_price, unit, min_numeric_part, max_price = ()
+                if unit in conversion_dictionary:
+                    conversion_factor, new_unit = conversion_dictionary[unit]
+                    converted_price = average_price * conversion_factor
+                    data.append(
+                        {
+                            "item_type": item_type,
+                            "average_price": round(converted_price, 2),
+                            "unit": new_unit,
+                        }
+                    )
+                else:
+                    data.append(
+                        {
+                            "item_type": item_type,
+                            "average_price": round(average_price, 2),
+                            "unit": unit,
+                        }
+                    )
+
         return jsonify({"data": data})
 
 
