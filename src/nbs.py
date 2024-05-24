@@ -99,7 +99,7 @@ class AverageItemTypesPrice(Resource):
 
             data = []
             for record in records:
-                item_type, average_price, unit, min_numeric_part, max_price = ()
+                item_type, average_price, unit, min_numeric_part, max_price = record
                 if unit in conversion_dictionary:
                     conversion_factor, new_unit = conversion_dictionary[unit]
                     converted_price = average_price * conversion_factor
@@ -119,7 +119,7 @@ class AverageItemTypesPrice(Resource):
                         }
                     )
 
-        return jsonify({"data": data})
+            return jsonify({"data": data})
 
 
 # http://127.0.0.1:5000/nbs/average-price-over-years/?food_item=oil&item_type=vegetable&category=1000%20ml
