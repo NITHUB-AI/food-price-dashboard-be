@@ -12,12 +12,20 @@ conn = psycopg2.connect(
 
 with conn.cursor() as cur:
     cur.execute(
-        f""" WITH latest as (SELECT date_trunc('month',date) as month FROM "Cleaned-Food-Prices" ORDER BY date desc limit 1))
-                WHERE food_item = 'tomato' AND vendor_type = 'Supermarket'
-                    AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
-                    AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)
-                GROUP BY EXTRACT(YEAR FROM CURRENT_DATE), EXTRACT(MONTH FROM CURRENT_DATE);
-                """
+        """
+                SELECT *, date_trunc('month',max(date)over()::timestamp) as max from "Cleaned-Food-Prices" 
+                SELECT date, item_type, category, price
+                FROM "Cleaned-Food-Prices"
+                WHERE food_item = 'oil'
+                    AND source = 'NBS'
+            ORDER BY date DESC;
+        """
+        # f""" WITH latest as (SELECT date_trunc('month',date) as month FROM "Cleaned-Food-Prices" ORDER BY date desc limit 1))
+        #         WHERE food_item = 'tomato' AND vendor_type = 'Supermarket'
+        #             AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
+        #             AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)
+        #         GROUP BY EXTRACT(YEAR FROM CURRENT_DATE), EXTRACT(MONTH FROM CURRENT_DATE);
+        #         """
         #                 with latest as (select date_trunc('month',date) as month from Cleaned-Food-Prices order by date desc limit 1)
         # select item_type,category,avg(price) from Cleaned-Food-Prices group by item_type, category where food_item='rice' and date_trunc('month',date) = latest.month;
         # """
@@ -46,3 +54,19 @@ with conn.cursor() as cur:
 
 
 conn.close()
+
+
+# cur.execute(
+#     """
+#     WITH LatestRecords AS (
+#         SELECT *, DATE_TRUNC('month', MAX(CAST(date AS TIMESTAMP)) OVER ()) AS latest_month
+#         FROM "Cleaned-Food-Prices"
+#         WHERE food_item = %s AND source = 'NBS'
+#     )
+#     SELECT date, item_type, category, price
+#     FROM LatestRecords
+#     WHERE DATE_TRUNC('month', CAST(date AS TIMESTAMP)) = latest_month
+#     ORDER BY date DESC;
+#     """,
+#     (food_item,),
+# )

@@ -65,34 +65,42 @@ class FilterByYear(Resource):
 class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
-    # TODO: Still in the works
     def get(self):
-        food_item = str(request.args.get("food_item"))
+        food_item = request.args.get("food_item")
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                f""" 
-                SELECT c.date, c.item_type, c.category, c.price 
-                FROM "Cleaned-Food-Prices" as c
-                WHERE food_item = '{food_item}' AND source = 'NBS';
-                ORDER BY date DESC 
+                """
+                SELECT 
+                SPLIT_PART(category, ' ', 2) AS unit,  -- Extracts the unit part (e.g., 'g', 'ml')
+                item_type, 
+                AVG(price) AS average_price
+            FROM 
+                "Cleaned-Food-Prices"
+            WHERE 
+                food_item = %s AND 
+                source = 'NBS'
+            GROUP BY 
+                item_type, 
+                SPLIT_PART(category, ' ', 2)
+            ORDER BY 
+                item_type;
                 """,
+                (food_item,),
             )
 
             records = cur.fetchall()
-            # nbs_item = nbs_dashboard_file[f"{food_item}"
-
-            # for i, v in
             print(records)
-        #     data = [
-        #         {
-        #             "item_type": record[0],
-        #             "average_price": float(f"{record[1]:.2f}"),
-        #         }
-        #         for record in records
-        #     ]
-        return jsonify({"data": records})
-        # return jsonify({"data": data})
+
+            data = [
+                {
+                    "unit": record[0],
+                    "item_type": record[1],
+                    "average_price": float(f"{record[2]:.2f}"),
+                }
+                for record in records
+            ]
+        return jsonify({"data": data})
 
 
 # http://127.0.0.1:5000/nbs/average-price-over-years/?food_item=oil&item_type=vegetable&category=1000%20ml
