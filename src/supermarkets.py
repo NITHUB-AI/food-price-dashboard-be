@@ -20,6 +20,8 @@ def get_db_connection():
 
 api = Namespace("Supermarket", description="Supermarket food price data operations")
 
+conversion_dictionary = {"g": [1000, "kg"], "ml": [1000, "L"], "pcs": [1, "pcs"]}
+
 
 # http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
 @api.route("/all-time/")
@@ -130,38 +132,71 @@ class LatestPrice(Resource):
         return jsonify({"data": data})
 
 
-# http://127.0.0.1:5000/supermarkets/average-price/?food_item=tomato&year=2024
+# http://127.0.0.1:5000/supermarkets/average-price/?food_item=tomato
 @api.route("/average-price/")
 class AveragePrice(Resource):
     """Returns the average price of all the item_types of the food_item chosen in a particular year."""
 
     def get(self):
         food_item = str(request.args.get("food_item"))
-        # earliest_month = str(datetime.now().date())[:-2] + "01"
 
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                WITH latest AS (
-                SELECT *, DATE_TRUNC('month', MAX(date) OVER()::timestamp) AS max 
-                FROM "Cleaned-Food-Prices" 
-                WHERE category IS NOT NULL AND LENGTH(category) > 0
-                AND food_item = '{food_item}'
-            ), datapoints AS (
-                SELECT item_type, category, price, price / (category::numeric) AS unit_price
-                FROM latest
-                WHERE DATE_TRUNC('month', date::timestamp) = max
-            ) 
-            SELECT item_type, AVG(unit_price) 
-            FROM datapoints 
-            GROUP BY item_type;
-                """
+                WITH LatestDate AS (
+                    SELECT MAX(CAST(date AS TIMESTAMP)) AS max_date
+                    FROM "Cleaned-Food-Prices"
+                    WHERE category IS NOT NULL AND LENGTH(category) > 0
+                    AND food_item = %s AND vendor_type = 'Supermarket'
+                ),
+                LatestRecords AS (
+                    SELECT 
+                        item_type, 
+                        category, 
+                        price, 
+                        SPLIT_PART(category, ' ', 1) AS numeric_part,
+                        SPLIT_PART(category, ' ', 2) AS unit,
+                        price / NULLIF(CAST(COALESCE(NULLIF(SPLIT_PART(category, ' ', 1), ''), '0') AS numeric), 0) AS unit_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE CAST(date AS TIMESTAMP) = (SELECT max_date FROM LatestDate)
+                )
+                SELECT item_type, AVG(unit_price) AS average_price, unit
+                FROM LatestRecords
+                GROUP BY item_type, unit;
+                """,
+                (food_item,),
             )
+
             records = cur.fetchall()
-            data = [
-                {"item_type": row[0], "value": "{:.2f}".format(float(row[1]))}
-                for row in records
-            ]
+
+            data = []
+            for item_type, average_price, unit in records:
+                if average_price is None:
+                    average_price = 0
+
+                if unit in conversion_dictionary:
+                    conversion_factor, new_unit = conversion_dictionary[unit]
+                    converted_price = (
+                        average_price * conversion_factor if average_price != 0 else 0
+                    )
+                    data.append(
+                        {
+                            "item_type": item_type,
+                            "average_price": round(converted_price, 2),
+                            "unit": new_unit,
+                        }
+                    )
+                else:
+                    data.append(
+                        {
+                            "item_type": item_type,
+                            "average_price": (
+                                round(average_price, 2) if average_price != 0 else 0
+                            ),
+                            "unit": unit,
+                        }
+                    )
+
         return jsonify({"data": data})
 
 
