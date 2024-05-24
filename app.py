@@ -4,6 +4,7 @@ import psycopg2
 
 from flask import Flask, jsonify, request, Request
 from flask_restx import Api, Resource
+from flask_cors import CORS
 
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
@@ -13,6 +14,7 @@ from src.supermarkets import api as supermarkets_api
 
 
 app = Flask(__name__)
+CORS(app)
 
 api = Api(
     version="1.0",
