@@ -2,7 +2,6 @@ import os
 import json
 import psycopg2
 
-from datetime import datetime
 from flask import jsonify, request
 from flask_restx import Resource, Namespace
 
@@ -29,7 +28,7 @@ conversion_dictionary = {"g": [1000, "kg"], "ml": [1000, "L"], "pcs": [1, "pcs"]
 with open("dashboard_items/supermarkets_dashboard.json", "r") as file:
     dashboard_items = json.load(file)
 
-# http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
+# http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=150%20g
 @api.route("/all-time/")
 class AllTime(Resource):
     """Returns the price of a category's food item for all time."""
@@ -102,7 +101,7 @@ class AllTime(Resource):
 
             records = cur.fetchall()
             data = [
-                {"date": row[0], "average_price": float("{:.2f}".format(row[1]))}
+                {"date": str(row[0]), "average_price": float("{:.2f}".format(row[1]))}
                 for row in records
             ]
         return jsonify({"data": data})
@@ -202,7 +201,7 @@ class FilterByCurrentYear(Resource):
             records = cur.fetchall()
 
             data = [
-                {"date": row[0], "average_price": float("{:.2f}".format(row[1]))}
+                {"date": str(row[0]), "average_price": float("{:.2f}".format(row[1]))}
                 for row in records
             ]
         return jsonify({"data": data})
