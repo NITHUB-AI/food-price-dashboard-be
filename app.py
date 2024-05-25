@@ -6,6 +6,10 @@ from flask import Flask, jsonify, request, Request
 from flask_restx import Api, Resource
 from flask_cors import CORS
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
@@ -19,7 +23,7 @@ CORS(app)
 api = Api(
     version="1.0",
     title="Food Price Prediction API",
-    description="An API for getting food prices, daily, monthly, and yearly.",
+    description="An API for getting descriptive data about food prices.",
     license="MIT",
     contact="NITDA AI Team.",
 )
