@@ -28,6 +28,14 @@ with open("dashboard_items/supermarkets_dashboard.json", "r") as file:
 
 # http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/all-time/")
+@api.doc(
+    description="Returns the price of a category's food item for all time.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Long grain",
+        "category": "Category e.g. 4500 g",
+    },
+)
 class AllTime(Resource):
     """Returns the price of a category's food item for all time."""
 
@@ -109,6 +117,16 @@ class AllTime(Resource):
 # http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=1000%20g&current_month=true
 # http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=1000%20g&current_week=true
 @api.route("/year/")
+@api.doc(
+    description="Returns the price of a category's food item for the current year with filter for current month and/or current week.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Long grain",
+        "category": "Category e.g. 4500 g",
+        "current_month": "Filter for current month. Default is false.",
+        "current_week": "Filter for current week. Default is false.",
+    },
+)
 class FilterByCurrentYear(Resource):
     """Returns the price of a category's food item for the current year with filter for current month and/or current week."""
 
@@ -208,6 +226,10 @@ class FilterByCurrentYear(Resource):
 
 # http://127.0.0.1:5000/supermarkets/average-item-types-price/?food_item=tomato
 @api.route("/average-item-types-price/")
+@api.doc(
+    description="Returns the current average price of all the item_types of a food_item.",
+    params={"food_item": "Food Item e.g. Rice"},
+)
 class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
@@ -288,6 +310,14 @@ class AverageItemTypesPrice(Resource):
 
 # http://127.0.0.1:5000/supermarkets/monthly-average-price/?food_item=tomato&item_type=tomato&category=150%20g
 @api.route("/monthly-average-price/")
+@api.doc(
+    description="Returns the monthly average price for the food_item, item_type and category chosen in the current year.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Long grain",
+        "category": "Category e.g. 4500 g",
+    },
+)
 class MonthlyAverage(Resource):
     """Returns the monthly average price for the food_item, item_type and category chosen in the current year."""
 
@@ -326,6 +356,14 @@ class MonthlyAverage(Resource):
 
 # http://127.0.0.1:5000/supermarkets/mom-percentage/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/mom-percentage/")
+@api.doc(
+    description="Returns the current month on month percentage change and the average price for the most recent month.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Long grain",
+        "category": "Category e.g. 4500 g",
+    },
+)
 class MonthOnMonthPercentage(Resource):
     """Returns the current month on month percentage change and the average price for the most recent month."""
 
@@ -374,6 +412,14 @@ class MonthOnMonthPercentage(Resource):
 
 # http://127.0.0.1:5000/supermarkets/dod-percentage/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/dod-percentage/")
+@api.doc(
+    description="Returns the current day over day percentage change and average price for the most recent day.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Long grain",
+        "category": "Category e.g. 4500 g",
+    },
+)
 class DayOverDayPercentage(Resource):
     """Returns the current day over day percentage change and average price for the most recent day."""
 

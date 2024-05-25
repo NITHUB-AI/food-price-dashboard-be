@@ -28,6 +28,15 @@ with open("dashboard_items/nbs_dashboard.json", "r") as file:
 
 # http://127.0.0.1:5000/nbs/year/?food_item=oil&item_type=vegetable&category=1%20ltr&year=2017
 @api.route("/year/")
+@api.doc(
+    description="Returns the prices over the specified year and the year before for a particular food item, item type, and category.",
+    params={
+        "food_item": "Food item e.g. Rice",
+        "item_type": "Item type e.g. Local",
+        "category": "Category e.g. 1000 g",
+        "year": "Year (starting from 2017) e.g. 2017",
+    },
+)
 class FilterByYear(Resource):
     """Returns the prices over the specified year and the year before for a particular food item, item type, and category."""
 
@@ -63,13 +72,19 @@ class FilterByYear(Resource):
 
 # http://127.0.0.1:5000/nbs/average-item-types-price/?food_item=oil&year=2018
 @api.route("/average-item-types-price/")
+@api.doc(
+    description="Returns the current average price of all the item_types of a food_item.",
+    params={"food_item": "Specify the food item to get average prices"},
+)
 class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
     def get(self):
         food_item = request.args.get("food_item")
 
-        item_type_filter = ','.join(f"'{item_type}'" for item_type in nbs_dashboard_file[food_item])
+        item_type_filter = ",".join(
+            f"'{item_type}'" for item_type in nbs_dashboard_file[food_item]
+        )
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -126,6 +141,14 @@ class AverageItemTypesPrice(Resource):
 
 # http://127.0.0.1:5000/nbs/average-price-over-years/?food_item=oil&item_type=vegetable&category=1000%20ml
 @api.route("/average-price-over-years/")
+@api.doc(
+    description="Returns the average price in each year for a particular food item, item type and category",
+    params={
+        "food_item": "Specify the food item e.g. potato",
+        "item_type": "Specify its item_type e.g. irish",
+        "category": "Specify the category e.g. 1000 g",
+    },
+)
 class AveragePriceOverYears(Resource):
     """Returns the average price in each year for a particular food item, item type and category."""
 
@@ -160,6 +183,14 @@ class AveragePriceOverYears(Resource):
 
 # http://127.0.0.1:5000/nbs/mom-percentage/?food_item=oil&item_type=vegetable&category=1000%20ml
 @api.route("/mom-percentage/")
+@api.doc(
+    description="Returns the current month on month percentage.",
+    params={
+        "food_item": "Specify the food item e.g. potato",
+        "item_type": "Specify its item_type e.g. irish",
+        "category": "Specify the category e.g. 1000 g",
+    },
+)
 class MonthOnMonthPercentage(Resource):
     """Returns the current month on month percentage."""
 
@@ -210,6 +241,14 @@ class MonthOnMonthPercentage(Resource):
 
 # http://127.0.0.1:5000/nbs/yoy-percentage/?food_item=oil&item_type=vegetable&category=1000%20ml
 @api.route("/yoy-percentage/")
+@api.doc(
+    description="Returns the current year on year percentage.",
+    params={
+        "food_item": "Specify the food item e.g. potato",
+        "item_type": "Specify its item_type e.g. irish",
+        "category": "Specify the category e.g. 1000 g",
+    },
+)
 class YearOnYearPercentage(Resource):
     """Returns the current year on year percentage."""
 
