@@ -41,21 +41,65 @@ class AllTime(Resource):
 
         with get_db_connection().cursor() as cur:
             cur.execute(
-                """
-                    SELECT date, AVG(price) AS avg_price
+                f"""
+                WITH RECURSIVE date_series AS (
+                    SELECT 
+                        generate_series(
+                            (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
+                            FROM "Cleaned-Food-Prices"
+                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
+                                AND category = '{category}' AND vendor_type = 'Supermarket'),
+                            (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
+                            FROM "Cleaned-Food-Prices"
+                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
+                                AND category = '{category}' AND vendor_type = 'Supermarket'),
+                            '1 day'::interval
+                        )::date AS date
+                ),
+                cleaned_data AS (
+                    SELECT 
+                        CAST(date AS date) as date,
+                        AVG(price) AS avg_price
                     FROM "Cleaned-Food-Prices"
-                    WHERE food_item = %s 
-                      AND item_type = %s 
-                      AND category = %s 
-                      AND vendor_type = 'Supermarket'
-                    GROUP BY date
-                    ORDER BY date;
-                    """,
-                (food_item, item_type, category),
+                    WHERE food_item = '{food_item}' 
+                        AND item_type = '{item_type}' 
+                        AND category = '{category}' 
+                        AND vendor_type = 'Supermarket'
+                    GROUP BY CAST(date AS date)
+                ),
+                joined_data AS (
+                    SELECT 
+                        ds.date,
+                        cd.avg_price
+                    FROM date_series ds
+                    LEFT JOIN cleaned_data cd ON ds.date = cd.date
+                ),
+                recursive_filled_data AS (
+                    SELECT 
+                        date,
+                        avg_price,
+                        avg_price AS filled_avg_price
+                    FROM joined_data
+                    WHERE avg_price IS NOT NULL
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        jd.date,
+                        jd.avg_price,
+                        rfd.filled_avg_price
+                    FROM joined_data jd
+                    JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
+                    WHERE jd.avg_price IS NULL
+                )
+                SELECT 
+                    date,
+                    filled_avg_price AS avg_price
+                FROM recursive_filled_data
+                ORDER BY date;
+                """,
             )
-            # TODO: Forward Fill
-            # Some categories don't have data on some days in the date range. They may have records for 2024-5-11 and then 2024-5-14. 
-            # In that case, The 12th and 13th have to be filled with the price on the 11th. 
+
             records = cur.fetchall()
             data = [
                 {"date": row[0], "average_price": float("{:.2f}".format(row[1]))}
@@ -64,9 +108,9 @@ class AllTime(Resource):
         return jsonify({"data": data})
 
 
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&year=2024&current_month=true
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&year=2024&current_week=true
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&current_month=true
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&current_week=true
 @api.route("/year/")
 class FilterByCurrentYear(Resource):
     """Returns the price of a category's food item for the current year with filter for current month and/or current week."""
@@ -75,18 +119,71 @@ class FilterByCurrentYear(Resource):
         food_item = request.args.get("food_item")
         item_type = request.args.get("item_type")
         category = request.args.get("category")
-        year = request.args.get("year")
         current_month = request.args.get("current_month", "false")
         current_week = request.args.get("current_week", "false")
+        assert current_month in ["true", "false"], "Invalid Current Month."
+        assert current_week in ["true", "false"], "Invalid Current Month."
 
-        query = """
-                SELECT date, AVG(price) AS avg_price
+
+        prequel = f"""
+                WITH RECURSIVE date_series AS (
+                    SELECT 
+                        generate_series(
+                            (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
+                            FROM "Cleaned-Food-Prices"
+                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
+                            (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
+                            FROM "Cleaned-Food-Prices"
+                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
+                            '1 day'::interval
+                        )::date AS date
+                ),
+                cleaned_data AS ("""
+
+        sequel ="""
+                ),
+                joined_data AS (
+                    SELECT 
+                        ds.date,
+                        cd.avg_price
+                    FROM date_series ds
+                    LEFT JOIN cleaned_data cd ON ds.date = cd.date
+                ),
+                recursive_filled_data AS (
+                    SELECT 
+                        date,
+                        avg_price,
+                        avg_price AS filled_avg_price
+                    FROM joined_data
+                    WHERE avg_price IS NOT NULL
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        jd.date,
+                        jd.avg_price,
+                        rfd.filled_avg_price
+                    FROM joined_data jd
+                    JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
+                    WHERE jd.avg_price IS NULL
+                )
+                SELECT 
+                    date,
+                    filled_avg_price AS avg_price
+                FROM recursive_filled_data
+                ORDER BY date;
+                """
+        current_month = "true"
+        current_week = "false"
+
+        query = f"""
+                SELECT CAST(date AS date) as date, AVG(price) AS avg_price
                 FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s 
-                    AND item_type = %s 
-                    AND category = %s 
+                WHERE food_item = '{food_item}' 
+                    AND item_type = '{item_type}' 
+                    AND category = '{category}' 
                     AND vendor_type = 'Supermarket'
-                    AND EXTRACT(YEAR FROM CAST(date AS DATE)) = %s
+                    AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
                 """
 
         if current_month.lower() == "true":
@@ -95,15 +192,14 @@ class FilterByCurrentYear(Resource):
         if current_week.lower() == "true":
             query += " AND EXTRACT(WEEK FROM CAST(date AS DATE)) = EXTRACT(WEEK FROM CURRENT_DATE)"
 
-        query += " GROUP BY date ORDER BY date;"
+        query += " GROUP BY CAST(date AS date)\n" # ORDER BY date;"
+
+        query += sequel
+        query = prequel + query
 
         with get_db_connection().cursor() as cur:
-            cur.execute(query, (food_item, item_type, category, year))
+            cur.execute(query,)
             records = cur.fetchall()
-
-            # TODO: Forward Fill
-            # Some categories don't have data on some days in the date range. They may have records for 2024-5-11 and then 2024-5-14. 
-            # In that case, The 12th and 13th have to be filled with the price on the 11th.
 
             data = [
                 {"date": row[0], "average_price": float("{:.2f}".format(row[1]))}
