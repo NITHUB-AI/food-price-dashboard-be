@@ -6,9 +6,6 @@ from flask import jsonify, request
 from flask_restx import Resource, Namespace
 
 from src.utils import *
-from dotenv import load_dotenv, find_dotenv
-
-load_dotenv(find_dotenv())
 
 
 def get_db_connection():
@@ -394,9 +391,9 @@ class DayOverDayPercentage(Resource):
 
             data = [
                 {
-                    "current_month": str(current_day),
-                    "current_month_average_price": current_day_average_price,
-                    "previous_month_avg_price": previous_day_avg_price,
+                    "current_day": str(current_day),
+                    "current_day_average_price": current_day_average_price,
+                    "previous_day_avg_price": previous_day_avg_price,
                     "percentage_change": percentage_change,
                 }
             ]
