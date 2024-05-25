@@ -1,4 +1,5 @@
 import os
+import json
 import psycopg2
 
 from datetime import datetime
@@ -25,6 +26,8 @@ api = Namespace("Supermarket", description="Supermarket food price data operatio
 
 conversion_dictionary = {"g": [1000, "kg"], "ml": [1000, "L"], "pcs": [1, "pcs"]}
 
+with open("dashboard_items/supermarkets_dashboard.json", "r") as file:
+    dashboard_items = json.load(file)
 
 # http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
 @api.route("/all-time/")
@@ -117,10 +120,16 @@ class AverageItemTypesPrice(Resource):
     def get(self):
         food_item = str(request.args.get("food_item"))
 
+        category_filter = ''
+        for item_type, categories in dashboard_items[food_item].items():
+            for category in categories:
+                category_filter += f"(item_type = '{item_type}' AND category = '{category}')"
+                category_filter += ' OR '
+        category_filter = category_filter.rstrip(" OR ")
+
         with get_db_connection().cursor() as cur:
-            # TODO: We are not yet filtering by the categories of interest in our JSON.
             cur.execute(
-                """
+                f"""
                 WITH LatestDate AS (
                     SELECT MAX(CAST(date AS TIMESTAMP)) AS max_date
                     FROM "Cleaned-Food-Prices"
@@ -137,12 +146,15 @@ class AverageItemTypesPrice(Resource):
                         price / NULLIF(CAST(COALESCE(NULLIF(SPLIT_PART(category, ' ', 1), ''), '0') AS numeric), 0) AS unit_price
                     FROM "Cleaned-Food-Prices"
                     WHERE CAST(date AS TIMESTAMP) = (SELECT max_date FROM LatestDate)
+                        AND food_item = %s AND vendor_type = 'Supermarket'
+                        AND {category_filter}
+
                 )
                 SELECT item_type, AVG(unit_price) AS average_price, unit
                 FROM LatestRecords
                 GROUP BY item_type, unit;
                 """,
-                (food_item,),
+                (food_item, food_item),
             )
 
             records = cur.fetchall()
