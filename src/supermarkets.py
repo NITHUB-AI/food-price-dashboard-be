@@ -25,7 +25,8 @@ conversion_dictionary = {"g": [1000, "kg"], "ml": [1000, "L"], "pcs": [1, "pcs"]
 with open("dashboard_items/supermarkets_dashboard.json", "r") as file:
     dashboard_items = json.load(file)
 
-# http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=150%20g
+
+# http://127.0.0.1:5000/supermarkets/all-time/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/all-time/")
 class AllTime(Resource):
     """Returns the price of a category's food item for all time."""
@@ -104,9 +105,9 @@ class AllTime(Resource):
         return jsonify({"data": data})
 
 
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&current_month=true
-# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=150%20g&current_week=true
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=1000%20g
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=1000%20g&current_month=true
+# http://127.0.0.1:5000/supermarkets/year/?food_item=tomato&item_type=tomato&category=1000%20g&current_week=true
 @api.route("/year/")
 class FilterByCurrentYear(Resource):
     """Returns the price of a category's food item for the current year with filter for current month and/or current week."""
@@ -119,7 +120,6 @@ class FilterByCurrentYear(Resource):
         current_week = request.args.get("current_week", "false")
         assert current_month in ["true", "false"], "Invalid Current Month."
         assert current_week in ["true", "false"], "Invalid Current Month."
-
 
         prequel = f"""
                 WITH RECURSIVE date_series AS (
@@ -136,7 +136,7 @@ class FilterByCurrentYear(Resource):
                 ),
                 cleaned_data AS ("""
 
-        sequel ="""
+        sequel = """
                 ),
                 joined_data AS (
                     SELECT 
@@ -188,13 +188,15 @@ class FilterByCurrentYear(Resource):
         if current_week.lower() == "true":
             query += " AND EXTRACT(WEEK FROM CAST(date AS DATE)) = EXTRACT(WEEK FROM CURRENT_DATE)"
 
-        query += " GROUP BY CAST(date AS date)\n" # ORDER BY date;"
+        query += " GROUP BY CAST(date AS date)\n"  # ORDER BY date;"
 
         query += sequel
         query = prequel + query
 
         with get_db_connection().cursor() as cur:
-            cur.execute(query,)
+            cur.execute(
+                query,
+            )
             records = cur.fetchall()
 
             data = [
@@ -212,11 +214,13 @@ class AverageItemTypesPrice(Resource):
     def get(self):
         food_item = str(request.args.get("food_item"))
 
-        category_filter = ''
+        category_filter = ""
         for item_type, categories in dashboard_items[food_item].items():
             for category in categories:
-                category_filter += f"(item_type = '{item_type}' AND category = '{category}')"
-                category_filter += ' OR '
+                category_filter += (
+                    f"(item_type = '{item_type}' AND category = '{category}')"
+                )
+                category_filter += " OR "
         category_filter = category_filter.rstrip(" OR ")
 
         with get_db_connection().cursor() as cur:
@@ -254,7 +258,7 @@ class AverageItemTypesPrice(Resource):
             data = []
             for item_type, average_price, unit in records:
                 if average_price is None:
-                    continue # average_price = 0
+                    continue  # average_price = 0
 
                 if unit in conversion_dictionary:
                     conversion_factor, new_unit = conversion_dictionary[unit]
@@ -293,7 +297,7 @@ class MonthlyAverage(Resource):
         category = request.args.get("category")
 
         with get_db_connection().cursor() as cur:
-            # NOTE: This query has been updated to return the values 
+            # NOTE: This query has been updated to return the values
             # for the last 12 months. Not just the months in the current year.
             cur.execute(
                 """
@@ -320,9 +324,10 @@ class MonthlyAverage(Resource):
         return jsonify({"data": data})
 
 
+# http://127.0.0.1:5000/supermarkets/mom-percentage/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/mom-percentage/")
 class MonthOnMonthPercentage(Resource):
-    """Returns the current month on month percentage change and the average price for the most recent month. """
+    """Returns the current month on month percentage change and the average price for the most recent month."""
 
     def get(self):
         food_item = request.args.get("food_item")
@@ -346,23 +351,31 @@ class MonthOnMonthPercentage(Resource):
             )
 
             records = cur.fetchall()
-            (current_month, current_month_average_price), (_, previous_month_avg_price) = records
-            percentage_change = (current_month_average_price - previous_month_avg_price) * 100 / previous_month_avg_price
+            (current_month, current_month_average_price), (
+                _,
+                previous_month_avg_price,
+            ) = records
+            percentage_change = (
+                (current_month_average_price - previous_month_avg_price)
+                * 100
+                / previous_month_avg_price
+            )
 
             data = [
                 {
                     "current_month": int(current_month),
                     "current_month_average_price": current_month_average_price,
                     "previous_month_avg_price": previous_month_avg_price,
-                    "percentage_change": percentage_change,
+                    "percentage_change": round(percentage_change, 2),
                 }
             ]
             return jsonify({"data": data})
 
 
+# http://127.0.0.1:5000/supermarkets/dod-percentage/?food_item=tomato&item_type=tomato&category=1000%20g
 @api.route("/dod-percentage/")
 class DayOverDayPercentage(Resource):
-    """Returns the current day over day percentage change and average price for the most recent day. """
+    """Returns the current day over day percentage change and average price for the most recent day."""
 
     def get(self):
         food_item = request.args.get("food_item")
@@ -386,15 +399,21 @@ class DayOverDayPercentage(Resource):
             )
 
             records = cur.fetchall()
-            (current_day, current_day_average_price), (_, previous_day_avg_price) = records
-            percentage_change = (current_day_average_price - previous_day_avg_price) * 100 / previous_day_avg_price
+            (current_day, current_day_average_price), (_, previous_day_avg_price) = (
+                records
+            )
+            percentage_change = (
+                (current_day_average_price - previous_day_avg_price)
+                * 100
+                / previous_day_avg_price
+            )
 
             data = [
                 {
                     "current_day": str(current_day),
                     "current_day_average_price": current_day_average_price,
                     "previous_day_avg_price": previous_day_avg_price,
-                    "percentage_change": percentage_change,
+                    "percentage_change": round(percentage_change, 2),
                 }
             ]
             return jsonify({"data": data})
