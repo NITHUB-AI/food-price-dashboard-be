@@ -69,11 +69,13 @@ class AverageItemTypesPrice(Resource):
     def get(self):
         food_item = request.args.get("food_item")
 
+        item_type_filter = ','.join(f"'{item_type}'" for item_type in nbs_dashboard_file[food_item])
+
         with get_db_connection().cursor() as cur:
             cur.execute(
-                """
+                f"""
                 WITH latest AS (
-                    SELECT *, DATE_TRUNC('month', MAX(CAST(date AS TIMESTAMP)) OVER()) AS max 
+                    SELECT *, DATE_TRUNC('month', MAX(CAST(date AS TIMESTAMP)) OVER()) AS max_date
                     FROM "Cleaned-Food-Prices" 
                     WHERE category IS NOT NULL AND LENGTH(category) > 0
                     AND food_item = %s AND source = 'NBS'
@@ -86,7 +88,7 @@ class AverageItemTypesPrice(Resource):
                         SPLIT_PART(category, ' ', 2) AS unit,
                         price / NULLIF(CAST(SPLIT_PART(category, ' ', 1) AS numeric), 0) AS unit_price
                     FROM latest
-                    WHERE DATE_TRUNC('month', CAST(date AS TIMESTAMP)) = max
+                    WHERE DATE_TRUNC('month', CAST(date AS TIMESTAMP)) = max_date  AND item_type in ({item_type_filter})
                 ) 
                 SELECT item_type, AVG(unit_price) AS average_price, unit, MIN(numeric_part) AS min_numeric_part, MAX(price) AS max_price
                 FROM datapoints 
