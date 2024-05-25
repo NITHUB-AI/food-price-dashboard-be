@@ -169,18 +169,18 @@ class MonthOnMonthPercentage(Resource):
         with get_db_connection().cursor() as cur:
             cur.execute(
                 """
-                    SELECT
-                        EXTRACT(MONTH FROM CURRENT_DATE) AS month,
-                        price AS current_month_price,
-                        LAG(price) OVER (ORDER BY EXTRACT(MONTH FROM CURRENT_DATE)) AS previous_month_price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE food_item = %s
-                        AND item_type = %s
-                        AND category = %s
-                        AND source = 'NBS'
-                    ORDER BY date DESC
-                    LIMIT 2;
-                    """,
+                SELECT
+                    EXTRACT(MONTH FROM CURRENT_DATE) AS month,
+                    price AS current_month_price,
+                    LAG(price) OVER (ORDER BY EXTRACT(MONTH FROM CURRENT_DATE)) AS previous_month_price
+                FROM "Cleaned-Food-Prices"
+                WHERE food_item = %s
+                    AND item_type = %s
+                    AND category = %s
+                    AND source = 'NBS'
+                ORDER BY date DESC
+                LIMIT 2;
+                """,
                 (food_item, item_type, category),
             )
 
