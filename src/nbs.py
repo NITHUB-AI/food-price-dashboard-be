@@ -41,10 +41,10 @@ class FilterByYear(Resource):
     """Returns the prices over the specified year and the year before for a particular food item, item type, and category."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
-        year = request.args.get("year")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
+        year = request.args.get("year").lower().strip()
 
         # Calculate the previous year
         previous_year = str(int(year) - 1)
@@ -80,7 +80,7 @@ class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
     def get(self):
-        food_item = request.args.get("food_item")
+        food_item = request.args.get("food_item").lower().strip()
 
         item_type_filter = ",".join(
             f"'{item_type}'" for item_type in nbs_dashboard_file[food_item]
@@ -153,9 +153,9 @@ class AveragePriceOverYears(Resource):
     """Returns the average price in each year for a particular food item, item type and category."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -195,9 +195,9 @@ class MonthOnMonthPercentage(Resource):
     """Returns the current month on month percentage."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -253,9 +253,9 @@ class YearOnYearPercentage(Resource):
     """Returns the current year on year percentage."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -299,9 +299,9 @@ class YearOnYearPercentage(Resource):
 #     """Returns the current year's average price of the food item, item type and category chosen."""
 
 #     def get(self):
-#         food_item = request.args.get("food_item")
-#         item_type = request.args.get("item_type")
-#         category = request.args.get("category")
+#         food_item = request.args.get("food_item").lower().strip()
+#         item_type = request.args.get("item_type").lower().strip()
+#         category = request.args.get("category").lower().strip()
 
 #         with get_db_connection().cursor() as cur:
 #             cur.execute(
@@ -335,9 +335,9 @@ class YearOnYearPercentage(Resource):
 #     """ "Returns the latest price of the category picked for the month."""
 
 #     def get(self):
-#         food_item = request.args.get("food_item")
-#         item_type = request.args.get("item_type")
-#         category = request.args.get("category")
+#         food_item = request.args.get("food_item").lower().strip()
+#         item_type = request.args.get("item_type").lower().strip()
+#         category = request.args.get("category").lower().strip()
 
 #         with get_db_connection().cursor() as cur:
 #             cur.execute(

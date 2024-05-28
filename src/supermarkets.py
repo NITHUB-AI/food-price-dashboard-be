@@ -40,9 +40,9 @@ class AllTime(Resource):
     """Returns the price of a category's food item for all time."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -131,11 +131,12 @@ class FilterByCurrentYear(Resource):
     """Returns the price of a category's food item for the current year with filter for current month and/or current week."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
-        current_month = request.args.get("current_month", "false")
-        current_week = request.args.get("current_week", "false")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
+
+        current_month = request.args.get("current_month", "false").lower().strip()
+        current_week = request.args.get("current_week", "false").lower().strip()
         assert current_month in ["true", "false"], "Invalid Current Month."
         assert current_week in ["true", "false"], "Invalid Current Month."
 
@@ -187,9 +188,7 @@ class FilterByCurrentYear(Resource):
                 FROM recursive_filled_data
                 ORDER BY date;
                 """
-        current_month = "true"
-        current_week = "false"
-
+        
         query = f"""
                 SELECT CAST(date AS date) as date, AVG(price) AS avg_price
                 FROM "Cleaned-Food-Prices"
@@ -234,7 +233,7 @@ class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
     def get(self):
-        food_item = str(request.args.get("food_item"))
+        food_item = request.args.get("food_item").lower().strip()
 
         category_filter = ""
         for item_type, categories in dashboard_items[food_item].items():
@@ -322,9 +321,9 @@ class MonthlyAverage(Resource):
     """Returns the monthly average price for the food_item, item_type and category chosen in the current year."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             # NOTE: This query has been updated to return the values
@@ -368,9 +367,9 @@ class MonthOnMonthPercentage(Resource):
     """Returns the current month on month percentage change and the average price for the most recent month."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -424,9 +423,9 @@ class DayOverDayPercentage(Resource):
     """Returns the current day over day percentage change and average price for the most recent day."""
 
     def get(self):
-        food_item = request.args.get("food_item")
-        item_type = request.args.get("item_type")
-        category = request.args.get("category")
+        food_item = request.args.get("food_item").lower().strip()
+        item_type = request.args.get("item_type").lower().strip()
+        category = request.args.get("category").lower().strip()
 
         with get_db_connection().cursor() as cur:
             cur.execute(
@@ -471,9 +470,9 @@ class DayOverDayPercentage(Resource):
 #     """Returns the latest daily price of a category's food item."""
 
 #     def get(self):
-#         food_item = request.args.get("food_item")
-#         item_type = request.args.get("item_type")
-#         category = request.args.get("category")
+#         food_item = request.args.get("food_item").lower().strip()
+#         item_type = request.args.get("item_type").lower().strip()
+#         category = request.args.get("category").lower().strip()
 
 #         with get_db_connection().cursor() as cur:
 #             cur.execute(
