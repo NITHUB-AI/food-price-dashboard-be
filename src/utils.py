@@ -1,21 +1,33 @@
 import json
-from flask import jsonify, request
+from flask import jsonify, request, abort
 
+
+with open("dashboard_items/nbs_dashboard.json", "r") as file:
+    nbs_dashboard = json.load(file)
 
 with open("dashboard_items/supermarkets_dashboard.json", "r") as file:
     supermarkets_dashboard = json.load(file)
 
 
-def validate_food_item(food_item, valid_items):
+def validate_nbs_food_item(food_item, nbs_dashboard):
     """
     Validates that the provided food item is in the list of valid items.
     """
-    if food_item not in valid_items:
-        valid_items_list = ", ".join(valid_items.keys())
-        return jsonify(
-            {
-                "message": f"Please enter a valid food item. The valid food items are: {valid_items_list}"
-            }
+    if food_item not in nbs_dashboard:
+        valid_items_list = ", ".join(nbs_dashboard.keys())
+        return abort(
+            400,
+            f"Please enter a valid food item. The valid food items are: {valid_items_list}",
         )
 
-    return None
+
+def validate_supermarkets_food_item(food_item, supermarkets_dashboard):
+    """
+    Validates that the provided food item is in the list of valid items.
+    """
+    if food_item not in supermarkets_dashboard:
+        valid_items_list = ", ".join(supermarkets_dashboard.keys())
+        return abort(
+            400,
+            f"Please enter a valid food item. The valid food items are: {valid_items_list}",
+        )

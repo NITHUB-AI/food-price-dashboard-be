@@ -2,10 +2,10 @@ import os
 import json
 import psycopg2
 
-from flask import jsonify, request
+from flask import jsonify, request, abort
 from flask_restx import Resource, Namespace
 
-from src.utils import *
+from src.utils import validate_supermarkets_food_item
 
 
 def get_db_connection():
@@ -40,76 +40,97 @@ class AllTime(Resource):
     """Returns the price of a category's food item for all time."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
-        category = request.args.get("category").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
+            item_type = request.args.get("item_type", "").lower().strip()
+            category = request.args.get("category", "").lower().strip()
 
-        with get_db_connection().cursor() as cur:
-            cur.execute(
-                f"""
-                WITH RECURSIVE date_series AS (
-                    SELECT 
-                        generate_series(
-                            (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
-                            FROM "Cleaned-Food-Prices"
-                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
-                                AND category = '{category}' AND vendor_type = 'Supermarket'),
-                            (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
-                            FROM "Cleaned-Food-Prices"
-                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
-                                AND category = '{category}' AND vendor_type = 'Supermarket'),
-                            '1 day'::interval
-                        )::date AS date
-                ),
-                cleaned_data AS (
-                    SELECT 
-                        CAST(date AS date) as date,
-                        AVG(price) AS avg_price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE food_item = '{food_item}' 
-                        AND item_type = '{item_type}' 
-                        AND category = '{category}' 
-                        AND vendor_type = 'Supermarket'
-                    GROUP BY CAST(date AS date)
-                ),
-                joined_data AS (
-                    SELECT 
-                        ds.date,
-                        cd.avg_price
-                    FROM date_series ds
-                    LEFT JOIN cleaned_data cd ON ds.date = cd.date
-                ),
-                recursive_filled_data AS (
+            if not all([food_item, item_type, category]):
+                return abort(400, "Missing required parameters")
+
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
+
+            with get_db_connection().cursor() as cur:
+                cur.execute(
+                    f"""
+                    WITH RECURSIVE date_series AS (
+                        SELECT 
+                            generate_series(
+                                (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
+                                FROM "Cleaned-Food-Prices"
+                                WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
+                                    AND category = '{category}' AND vendor_type = 'Supermarket'),
+                                (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
+                                FROM "Cleaned-Food-Prices"
+                                WHERE food_item = '{food_item}' AND item_type = '{item_type}' 
+                                    AND category = '{category}' AND vendor_type = 'Supermarket'),
+                                '1 day'::interval
+                            )::date AS date
+                    ),
+                    cleaned_data AS (
+                        SELECT 
+                            CAST(date AS date) as date,
+                            AVG(price) AS avg_price
+                        FROM "Cleaned-Food-Prices"
+                        WHERE food_item = '{food_item}' 
+                            AND item_type = '{item_type}' 
+                            AND category = '{category}' 
+                            AND vendor_type = 'Supermarket'
+                        GROUP BY CAST(date AS date)
+                    ),
+                    joined_data AS (
+                        SELECT 
+                            ds.date,
+                            cd.avg_price
+                        FROM date_series ds
+                        LEFT JOIN cleaned_data cd ON ds.date = cd.date
+                    ),
+                    recursive_filled_data AS (
+                        SELECT 
+                            date,
+                            avg_price,
+                            avg_price AS filled_avg_price
+                        FROM joined_data
+                        WHERE avg_price IS NOT NULL
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            jd.date,
+                            jd.avg_price,
+                            rfd.filled_avg_price
+                        FROM joined_data jd
+                        JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
+                        WHERE jd.avg_price IS NULL
+                    )
                     SELECT 
                         date,
-                        avg_price,
-                        avg_price AS filled_avg_price
-                    FROM joined_data
-                    WHERE avg_price IS NOT NULL
-                    
-                    UNION ALL
-                    
-                    SELECT 
-                        jd.date,
-                        jd.avg_price,
-                        rfd.filled_avg_price
-                    FROM joined_data jd
-                    JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
-                    WHERE jd.avg_price IS NULL
+                        filled_avg_price AS avg_price
+                    FROM recursive_filled_data
+                    ORDER BY date;
+                    """,
                 )
-                SELECT 
-                    date,
-                    filled_avg_price AS avg_price
-                FROM recursive_filled_data
-                ORDER BY date;
-                """,
-            )
 
-            records = cur.fetchall()
-            data = [
-                {"date": str(row[0]), "average_price": float("{:.2f}".format(row[1]))}
-                for row in records
-            ]
+                records = cur.fetchall()
+
+                if not records:
+                    return abort(404, "No data found")
+                data = [
+                    {
+                        "date": str(row[0]),
+                        "average_price": float("{:.2f}".format(row[1])),
+                    }
+                    for row in records
+                ]
+
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
+
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
+
         return jsonify({"data": data})
 
 
@@ -131,95 +152,116 @@ class FilterByCurrentYear(Resource):
     """Returns the price of a category's food item for the current year with filter for current month and/or current week."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
-        category = request.args.get("category").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
+            item_type = request.args.get("item_type", "").lower().strip()
+            category = request.args.get("category", "").lower().strip()
 
-        current_month = request.args.get("current_month", "false").lower().strip()
-        current_week = request.args.get("current_week", "false").lower().strip()
-        assert current_month in ["true", "false"], "Invalid Current Month."
-        assert current_week in ["true", "false"], "Invalid Current Month."
+            current_month = request.args.get("current_month", "false").lower().strip()
+            current_week = request.args.get("current_week", "false").lower().strip()
+            assert current_month in ["true", "false"], "Invalid Current Month."
+            assert current_week in ["true", "false"], "Invalid Current Month."
 
-        prequel = f"""
-                WITH RECURSIVE date_series AS (
-                    SELECT 
-                        generate_series(
-                            (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
-                            FROM "Cleaned-Food-Prices"
-                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
-                            (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
-                            FROM "Cleaned-Food-Prices"
-                            WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
-                            '1 day'::interval
-                        )::date AS date
-                ),
-                cleaned_data AS ("""
+            if not all([food_item, item_type, category]):
+                return abort(400, "Missing required parameters")
 
-        sequel = """
-                ),
-                joined_data AS (
-                    SELECT 
-                        ds.date,
-                        cd.avg_price
-                    FROM date_series ds
-                    LEFT JOIN cleaned_data cd ON ds.date = cd.date
-                ),
-                recursive_filled_data AS (
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
+
+            prequel = f"""
+                    WITH RECURSIVE date_series AS (
+                        SELECT 
+                            generate_series(
+                                (SELECT MIN(date_trunc('day', CAST(date AS DATE))) 
+                                FROM "Cleaned-Food-Prices"
+                                WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
+                                (SELECT MAX(date_trunc('day', CAST(date AS DATE))) 
+                                FROM "Cleaned-Food-Prices"
+                                WHERE food_item = '{food_item}' AND item_type = '{item_type}' AND category = '{category}' AND vendor_type = 'Supermarket'),
+                                '1 day'::interval
+                            )::date AS date
+                    ),
+                    cleaned_data AS ("""
+
+            sequel = """
+                    ),
+                    joined_data AS (
+                        SELECT 
+                            ds.date,
+                            cd.avg_price
+                        FROM date_series ds
+                        LEFT JOIN cleaned_data cd ON ds.date = cd.date
+                    ),
+                    recursive_filled_data AS (
+                        SELECT 
+                            date,
+                            avg_price,
+                            avg_price AS filled_avg_price
+                        FROM joined_data
+                        WHERE avg_price IS NOT NULL
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            jd.date,
+                            jd.avg_price,
+                            rfd.filled_avg_price
+                        FROM joined_data jd
+                        JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
+                        WHERE jd.avg_price IS NULL
+                    )
                     SELECT 
                         date,
-                        avg_price,
-                        avg_price AS filled_avg_price
-                    FROM joined_data
-                    WHERE avg_price IS NOT NULL
-                    
-                    UNION ALL
-                    
-                    SELECT 
-                        jd.date,
-                        jd.avg_price,
-                        rfd.filled_avg_price
-                    FROM joined_data jd
-                    JOIN recursive_filled_data rfd ON jd.date = rfd.date + INTERVAL '1 day'
-                    WHERE jd.avg_price IS NULL
+                        filled_avg_price AS avg_price
+                    FROM recursive_filled_data
+                    ORDER BY date;
+                    """
+
+            query = f"""
+                    SELECT CAST(date AS date) as date, AVG(price) AS avg_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = '{food_item}' 
+                        AND item_type = '{item_type}' 
+                        AND category = '{category}' 
+                        AND vendor_type = 'Supermarket'
+                        AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
+                    """
+
+            if current_month.lower() == "true":
+                query += " AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)"
+
+            if current_week.lower() == "true":
+                query += " AND EXTRACT(WEEK FROM CAST(date AS DATE)) = EXTRACT(WEEK FROM CURRENT_DATE)"
+
+            query += " GROUP BY CAST(date AS date)\n"  # ORDER BY date;"
+
+            query += sequel
+            query = prequel + query
+
+            with get_db_connection().cursor() as cur:
+                cur.execute(
+                    query,
                 )
-                SELECT 
-                    date,
-                    filled_avg_price AS avg_price
-                FROM recursive_filled_data
-                ORDER BY date;
-                """
-        
-        query = f"""
-                SELECT CAST(date AS date) as date, AVG(price) AS avg_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = '{food_item}' 
-                    AND item_type = '{item_type}' 
-                    AND category = '{category}' 
-                    AND vendor_type = 'Supermarket'
-                    AND EXTRACT(YEAR FROM CAST(date AS DATE)) = EXTRACT(YEAR FROM CURRENT_DATE)
-                """
+                records = cur.fetchall()
 
-        if current_month.lower() == "true":
-            query += " AND EXTRACT(MONTH FROM CAST(date AS DATE)) = EXTRACT(MONTH FROM CURRENT_DATE)"
+                if not records:
+                    return abort(404, "No records found")
 
-        if current_week.lower() == "true":
-            query += " AND EXTRACT(WEEK FROM CAST(date AS DATE)) = EXTRACT(WEEK FROM CURRENT_DATE)"
+                data = [
+                    {
+                        "date": str(row[0]),
+                        "average_price": float("{:.2f}".format(row[1])),
+                    }
+                    for row in records
+                ]
 
-        query += " GROUP BY CAST(date AS date)\n"  # ORDER BY date;"
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
 
-        query += sequel
-        query = prequel + query
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
 
-        with get_db_connection().cursor() as cur:
-            cur.execute(
-                query,
-            )
-            records = cur.fetchall()
-
-            data = [
-                {"date": str(row[0]), "average_price": float("{:.2f}".format(row[1]))}
-                for row in records
-            ]
         return jsonify({"data": data})
 
 
@@ -233,76 +275,95 @@ class AverageItemTypesPrice(Resource):
     """Returns the current average price of all the item_types of a food_item."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
 
-        category_filter = ""
-        for item_type, categories in dashboard_items[food_item].items():
-            for category in categories:
-                category_filter += (
-                    f"(item_type = '{item_type}' AND category = '{category}')"
-                )
-                category_filter += " OR "
-        category_filter = category_filter.rstrip(" OR ")
+            if not all([food_item]):
+                return abort(400, "Missing required parameters")
 
-        with get_db_connection().cursor() as cur:
-            cur.execute(
-                f"""
-                WITH LatestDate AS (
-                    SELECT MAX(CAST(date AS TIMESTAMP)) AS max_date
-                    FROM "Cleaned-Food-Prices"
-                    WHERE category IS NOT NULL AND LENGTH(category) > 0
-                    AND food_item = %s AND vendor_type = 'Supermarket'
-                ),
-                LatestRecords AS (
-                    SELECT 
-                        item_type, 
-                        category, 
-                        price, 
-                        SPLIT_PART(category, ' ', 1) AS numeric_part,
-                        SPLIT_PART(category, ' ', 2) AS unit,
-                        price / NULLIF(CAST(COALESCE(NULLIF(SPLIT_PART(category, ' ', 1), ''), '0') AS numeric), 0) AS unit_price
-                    FROM "Cleaned-Food-Prices"
-                    WHERE CAST(date AS TIMESTAMP) = (SELECT max_date FROM LatestDate)
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
+
+            category_filter = ""
+            for item_type, categories in dashboard_items[food_item].items():
+                for category in categories:
+                    category_filter += (
+                        f"(item_type = '{item_type}' AND category = '{category}')"
+                    )
+                    category_filter += " OR "
+            category_filter = category_filter.rstrip(" OR ")
+
+            with get_db_connection().cursor() as cur:
+                cur.execute(
+                    f"""
+                    WITH LatestDate AS (
+                        SELECT MAX(CAST(date AS TIMESTAMP)) AS max_date
+                        FROM "Cleaned-Food-Prices"
+                        WHERE category IS NOT NULL AND LENGTH(category) > 0
                         AND food_item = %s AND vendor_type = 'Supermarket'
-                        AND {category_filter}
+                    ),
+                    LatestRecords AS (
+                        SELECT 
+                            item_type, 
+                            category, 
+                            price, 
+                            SPLIT_PART(category, ' ', 1) AS numeric_part,
+                            SPLIT_PART(category, ' ', 2) AS unit,
+                            price / NULLIF(CAST(COALESCE(NULLIF(SPLIT_PART(category, ' ', 1), ''), '0') AS numeric), 0) AS unit_price
+                        FROM "Cleaned-Food-Prices"
+                        WHERE CAST(date AS TIMESTAMP) = (SELECT max_date FROM LatestDate)
+                            AND food_item = %s AND vendor_type = 'Supermarket'
+                            AND {category_filter}
 
+                    )
+                    SELECT item_type, AVG(unit_price) AS average_price, unit
+                    FROM LatestRecords
+                    GROUP BY item_type, unit;
+                    """,
+                    (food_item, food_item),
                 )
-                SELECT item_type, AVG(unit_price) AS average_price, unit
-                FROM LatestRecords
-                GROUP BY item_type, unit;
-                """,
-                (food_item, food_item),
-            )
 
-            records = cur.fetchall()
+                records = cur.fetchall()
 
-            data = []
-            for item_type, average_price, unit in records:
-                if average_price is None:
-                    continue  # average_price = 0
+                if not records:
+                    return abort(404, "No records found")
 
-                if unit in conversion_dictionary:
-                    conversion_factor, new_unit = conversion_dictionary[unit]
-                    converted_price = (
-                        average_price * conversion_factor if average_price != 0 else 0
-                    )
-                    data.append(
-                        {
-                            "item_type": item_type,
-                            "average_price": round(converted_price, 2),
-                            "unit": new_unit,
-                        }
-                    )
-                else:
-                    data.append(
-                        {
-                            "item_type": item_type,
-                            "average_price": (
-                                round(average_price, 2) if average_price != 0 else 0
-                            ),
-                            "unit": unit,
-                        }
-                    )
+                data = []
+                for item_type, average_price, unit in records:
+                    if average_price is None:
+                        continue  # average_price = 0
+
+                    if unit in conversion_dictionary:
+                        conversion_factor, new_unit = conversion_dictionary[unit]
+                        converted_price = (
+                            average_price * conversion_factor
+                            if average_price != 0
+                            else 0
+                        )
+                        data.append(
+                            {
+                                "item_type": item_type,
+                                "average_price": round(converted_price, 2),
+                                "unit": new_unit,
+                            }
+                        )
+                    else:
+                        data.append(
+                            {
+                                "item_type": item_type,
+                                "average_price": (
+                                    round(average_price, 2) if average_price != 0 else 0
+                                ),
+                                "unit": unit,
+                            }
+                        )
+
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
+
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify({"data": data})
 
@@ -321,35 +382,54 @@ class MonthlyAverage(Resource):
     """Returns the monthly average price for the food_item, item_type and category chosen in the current year."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
-        category = request.args.get("category").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
+            item_type = request.args.get("item_type", "").lower().strip()
+            category = request.args.get("category", "").lower().strip()
 
-        with get_db_connection().cursor() as cur:
-            # NOTE: This query has been updated to return the values
-            # for the last 12 months. Not just the months in the current year.
-            cur.execute(
-                """
-                SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s
-                    AND item_type = %s
-                    AND category = %s
-                    AND vendor_type = 'Supermarket'
-                GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE)), EXTRACT(MONTH FROM CAST(date AS DATE))
-                ORDER BY EXTRACT(YEAR FROM CAST(date AS DATE)) DESC, EXTRACT(MONTH FROM CAST(date AS DATE)) DESC
-                LIMIT 12;
-                """,
-                (food_item, item_type, category),
-            )
-            records = cur.fetchall()
-            data = [
-                {
-                    "month": int(row[0]),
-                    "monthly_avg_price": float("{:.2f}".format(row[1])),
-                }
-                for row in records[::-1]
-            ]
+            if not all([food_item, item_type, category]):
+                return abort(400, "Missing required parameters")
+
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
+
+            with get_db_connection().cursor() as cur:
+                # NOTE: This query has been updated to return the values
+                # for the last 12 months. Not just the months in the current year.
+                cur.execute(
+                    """
+                    SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = %s
+                        AND item_type = %s
+                        AND category = %s
+                        AND vendor_type = 'Supermarket'
+                    GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE)), EXTRACT(MONTH FROM CAST(date AS DATE))
+                    ORDER BY EXTRACT(YEAR FROM CAST(date AS DATE)) DESC, EXTRACT(MONTH FROM CAST(date AS DATE)) DESC
+                    LIMIT 12;
+                    """,
+                    (food_item, item_type, category),
+                )
+                records = cur.fetchall()
+
+                if not records:
+                    return abort(404, "No records found")
+
+                data = [
+                    {
+                        "month": int(row[0]),
+                        "monthly_avg_price": float("{:.2f}".format(row[1])),
+                    }
+                    for row in records[::-1]
+                ]
+
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
+
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
+
         return jsonify({"data": data})
 
 
@@ -367,46 +447,65 @@ class MonthOnMonthPercentage(Resource):
     """Returns the current month on month percentage change and the average price for the most recent month."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
-        category = request.args.get("category").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
+            item_type = request.args.get("item_type", "").lower().strip()
+            category = request.args.get("category", "").lower().strip()
 
-        with get_db_connection().cursor() as cur:
-            cur.execute(
-                """
-                SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s
-                    AND item_type = %s
-                    AND category = %s
-                    AND vendor_type = 'Supermarket'
-                GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE)), EXTRACT(MONTH FROM CAST(date AS DATE))
-                ORDER BY EXTRACT(YEAR FROM CAST(date AS DATE)) DESC, EXTRACT(MONTH FROM CAST(date AS DATE)) DESC
-                LIMIT 2;
-                """,
-                (food_item, item_type, category),
-            )
+            if not all([food_item, item_type, category]):
+                return abort(400, "Missing required parameters")
 
-            records = cur.fetchall()
-            (current_month, current_month_average_price), (
-                _,
-                previous_month_avg_price,
-            ) = records
-            percentage_change = (
-                (current_month_average_price - previous_month_avg_price)
-                * 100
-                / previous_month_avg_price
-            )
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
 
-            data = [
-                {
-                    "current_month": int(current_month),
-                    "current_month_average_price": current_month_average_price,
-                    "previous_month_avg_price": previous_month_avg_price,
-                    "percentage_change": round(percentage_change, 2),
-                }
-            ]
-            return jsonify({"data": data})
+            with get_db_connection().cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT EXTRACT(MONTH FROM CAST(date AS DATE)) AS month, AVG(price) AS monthly_avg_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = %s
+                        AND item_type = %s
+                        AND category = %s
+                        AND vendor_type = 'Supermarket'
+                    GROUP BY EXTRACT(YEAR FROM CAST(date AS DATE)), EXTRACT(MONTH FROM CAST(date AS DATE))
+                    ORDER BY EXTRACT(YEAR FROM CAST(date AS DATE)) DESC, EXTRACT(MONTH FROM CAST(date AS DATE)) DESC
+                    LIMIT 2;
+                    """,
+                    (food_item, item_type, category),
+                )
+
+                records = cur.fetchall()
+
+                if not records:
+                    return abort(404, "No records found")
+
+                (current_month, current_month_average_price), (
+                    _,
+                    previous_month_avg_price,
+                ) = records
+                percentage_change = (
+                    (current_month_average_price - previous_month_avg_price)
+                    * 100
+                    / previous_month_avg_price
+                )
+
+                data = [
+                    {
+                        "current_month": int(current_month),
+                        "current_month_average_price": current_month_average_price,
+                        "previous_month_avg_price": previous_month_avg_price,
+                        "percentage_change": round(percentage_change, 2),
+                    }
+                ]
+
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
+
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
+
+        return jsonify({"data": data})
 
 
 # http://127.0.0.1:5000/supermarkets/dod-percentage/?food_item=tomato&item_type=tomato&category=1000%20g
@@ -423,45 +522,64 @@ class DayOverDayPercentage(Resource):
     """Returns the current day over day percentage change and average price for the most recent day."""
 
     def get(self):
-        food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
-        category = request.args.get("category").lower().strip()
+        try:
+            food_item = request.args.get("food_item", "").lower().strip()
+            item_type = request.args.get("item_type", "").lower().strip()
+            category = request.args.get("category", "").lower().strip()
 
-        with get_db_connection().cursor() as cur:
-            cur.execute(
-                """
-                SELECT date, AVG(price) AS daily_avg_price
-                FROM "Cleaned-Food-Prices"
-                WHERE food_item = %s
-                    AND item_type = %s
-                    AND category = %s
-                    AND vendor_type = 'Supermarket'
-                GROUP BY date
-                ORDER BY date DESC
-                LIMIT 2;
-                """,
-                (food_item, item_type, category),
-            )
+            if not all([food_item, item_type, category]):
+                return abort(400, "Missing required parameters")
 
-            records = cur.fetchall()
-            (current_day, current_day_average_price), (_, previous_day_avg_price) = (
-                records
-            )
-            percentage_change = (
-                (current_day_average_price - previous_day_avg_price)
-                * 100
-                / previous_day_avg_price
-            )
+            check = validate_supermarkets_food_item(food_item, dashboard_items)
+            if check is not None:
+                return check
 
-            data = [
-                {
-                    "current_day": str(current_day),
-                    "current_day_average_price": current_day_average_price,
-                    "previous_day_avg_price": previous_day_avg_price,
-                    "percentage_change": round(percentage_change, 2),
-                }
-            ]
-            return jsonify({"data": data})
+            with get_db_connection().cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT date, AVG(price) AS daily_avg_price
+                    FROM "Cleaned-Food-Prices"
+                    WHERE food_item = %s
+                        AND item_type = %s
+                        AND category = %s
+                        AND vendor_type = 'Supermarket'
+                    GROUP BY date
+                    ORDER BY date DESC
+                    LIMIT 2;
+                    """,
+                    (food_item, item_type, category),
+                )
+
+                records = cur.fetchall()
+
+                if not records:
+                    return abort(404, "No records found")
+
+                (current_day, current_day_average_price), (
+                    _,
+                    previous_day_avg_price,
+                ) = records
+                percentage_change = (
+                    (current_day_average_price - previous_day_avg_price)
+                    * 100
+                    / previous_day_avg_price
+                )
+
+                data = [
+                    {
+                        "current_day": str(current_day),
+                        "current_day_average_price": current_day_average_price,
+                        "previous_day_avg_price": previous_day_avg_price,
+                        "percentage_change": round(percentage_change, 2),
+                    }
+                ]
+        except psycopg2.Error as e:
+            return abort(500, f"Database error: {str(e)}")
+
+        except Exception as e:
+            return abort(500, f"An unexpected error occurred: {str(e)}")
+
+        return jsonify({"data": data})
 
 
 # # http://127.0.0.1:5000/supermarkets/latest-price/?food_item=tomato&item_type=tomato&category=150%20g&year=2024
