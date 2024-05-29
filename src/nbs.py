@@ -4,6 +4,7 @@ import json
 
 from flask import jsonify, request
 from flask_restx import Resource, Namespace
+from .utils import validate_food_item
 
 
 def get_db_connection():
@@ -42,12 +43,19 @@ class FilterByYear(Resource):
 
     def get(self):
         food_item = request.args.get("food_item").lower().strip()
-        item_type = request.args.get("item_type").lower().strip()
+        item_type = request.args.get("item_type", "").lower().strip()
         category = request.args.get("category").lower().strip()
         year = request.args.get("year").lower().strip()
 
         # Calculate the previous year
         previous_year = str(int(year) - 1)
+
+        if not all([food_item, item_type, category, year]):
+            return jsonify({"message": "Please provide all required parameters."})
+
+        check = validate_food_item(food_item, nbs_dashboard_file)
+        if check is not None:
+            return check
 
         with get_db_connection().cursor() as cur:
             cur.execute(
