@@ -87,8 +87,8 @@ class FilterByYear(Resource):
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
 
-        except Exception as e:
-            return abort(500, f"An unexpected error occurred: {str(e)}")
+        # except Exception as e:
+        #     return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify({"data": data})
 
@@ -173,8 +173,8 @@ class AverageItemTypesPrice(Resource):
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
 
-        except Exception as e:
-            return abort(500, f"An unexpected error occurred: {str(e)}")
+        # except Exception as e:
+        #     return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify({"data": data})
 
@@ -232,8 +232,8 @@ class AveragePriceOverYears(Resource):
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
 
-        except Exception as e:
-            return abort(500, f"An unexpected error occurred: {str(e)}")
+        # except Exception as e:
+        #     return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify({"data": data})
 
@@ -308,8 +308,8 @@ class MonthOnMonthPercentage(Resource):
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
 
-        except Exception as e:
-            return abort(500, f"An unexpected error occurred: {str(e)}")
+        # except Exception as e:
+        #     return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify(data)
 
@@ -380,8 +380,8 @@ class YearOnYearPercentage(Resource):
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
 
-        except Exception as e:
-            return abort(500, f"An unexpected error occurred: {str(e)}")
+        # except Exception as e:
+        #     return abort(500, f"An unexpected error occurred: {str(e)}")
 
         return jsonify(data)
 
