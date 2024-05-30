@@ -35,7 +35,7 @@ with open("dashboard_items/nbs_dashboard.json", "r") as file:
         "food_item": "Food item e.g. Rice",
         "item_type": "Item type e.g. Local",
         "category": "Category e.g. 1000 g",
-        "year": "Year (starting from 2017) e.g. 2017",
+        "year": "Year (starting from 2016) e.g. 2017",
     },
 )
 class FilterByYear(Resource):

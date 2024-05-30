@@ -33,7 +33,7 @@ Remember to create a `.env` file to put in the environment variable before runni
 The API endpoints are defined in the `app.py` file located in the `src` folder. To run the app:
 
 ```bash
-flask --app pp run
+flask --app app run
 ```
 
 For auto-reloading,
