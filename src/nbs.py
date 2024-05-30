@@ -46,7 +46,7 @@ class FilterByYear(Resource):
             food_item = request.args.get("food_item", "").lower().strip()
             item_type = request.args.get("item_type", "").lower().strip()
             category = request.args.get("category", "").lower().strip()
-            year = request.args.get("year", "").strip()
+            year = request.args.get("year", "0").strip()
 
             # Calculate the previous year
             previous_year = str(int(year) - 1)
@@ -77,7 +77,7 @@ class FilterByYear(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found.")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = [
                     {"date": record[0], "value": float("{:.2f}".format(record[1]))}
@@ -146,7 +146,7 @@ class AverageItemTypesPrice(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found.")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = []
                 for record in records:
@@ -222,7 +222,7 @@ class AveragePriceOverYears(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found.")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = [
                     {"year": int(year), "average_price": float(f"{average_price:.2f}")}
@@ -285,7 +285,7 @@ class MonthOnMonthPercentage(Resource):
                 records = cur.fetchone()
 
                 if not records:
-                    return abort(404, "No records found.")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 if records:
                     month, current_month_price, previous_month_price = records
@@ -357,7 +357,7 @@ class YearOnYearPercentage(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found.")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 if records:
                     (year, current_year_price), (_, previous_year_price) = records
