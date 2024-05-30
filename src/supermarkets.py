@@ -116,7 +116,7 @@ class AllTime(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No data found")
+                    return abort(404, "No records found. Confirm query parameters.")
                 data = [
                     {
                         "date": str(row[0]),
@@ -258,6 +258,9 @@ class FilterByCurrentYear(Resource):
 
         except psycopg2.Error as e:
             return abort(500, f"Database error: {str(e)}")
+        
+        except AssertionError as e:
+            return abort(400, e)
 
         # except Exception as e:
         #     return abort(500, f"An unexpected error occurred: {str(e)}")
