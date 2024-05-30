@@ -160,7 +160,7 @@ class FilterByCurrentYear(Resource):
             current_month = request.args.get("current_month", "false").lower().strip()
             current_week = request.args.get("current_week", "false").lower().strip()
             assert current_month in ["true", "false"], "Invalid Current Month."
-            assert current_week in ["true", "false"], "Invalid Current Month."
+            assert current_week in ["true", "false"], "Invalid Current Week."
 
             if not all([food_item, item_type, category]):
                 return abort(400, "Missing required parameters")
@@ -260,7 +260,7 @@ class FilterByCurrentYear(Resource):
             return abort(500, f"Database error: {str(e)}")
         
         except AssertionError as e:
-            return abort(400, e)
+            return abort(400, f"{e}")
 
         # except Exception as e:
         #     return abort(500, f"An unexpected error occurred: {str(e)}")
