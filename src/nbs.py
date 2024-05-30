@@ -51,11 +51,11 @@ class FilterByYear(Resource):
             # Calculate the previous year
             previous_year = str(int(year) - 1)
 
-            if int(year) < 2016:
-                return abort(400, "Invalid year. The earliest year is 2016.")
-
             if not all([food_item, item_type, category, year]):
                 return abort(400, "Missing required parameters")
+            
+            if int(year) < 2016:
+                return abort(400, "Invalid year. The earliest year is 2016.")
 
             check = validate_nbs_food_item(food_item, nbs_dashboard_file)
             if check is not None:
