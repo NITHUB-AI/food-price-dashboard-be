@@ -246,7 +246,7 @@ class FilterByCurrentYear(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = [
                     {
@@ -327,7 +327,7 @@ class AverageItemTypesPrice(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = []
                 for item_type, average_price, unit in records:
@@ -414,7 +414,7 @@ class MonthlyAverage(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 data = [
                     {
@@ -478,7 +478,7 @@ class MonthOnMonthPercentage(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 (current_month, current_month_average_price), (
                     _,
@@ -553,7 +553,7 @@ class DayOverDayPercentage(Resource):
                 records = cur.fetchall()
 
                 if not records:
-                    return abort(404, "No records found")
+                    return abort(404, "No records found. Confirm query parameters.")
 
                 (current_day, current_day_average_price), (
                     _,
