@@ -7,3 +7,7 @@ __pycache__/
 .idx/
 test*
 test.py
+bin/
+lib/
+include/
+pyvenv.cfg
