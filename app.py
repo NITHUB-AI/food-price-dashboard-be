@@ -15,6 +15,7 @@ sys.path.insert(0, project_root)
 
 from src.nbs import api as nbs_api
 from src.supermarkets import api as supermarkets_api
+from src.news import api as news_api
 
 
 app = Flask(__name__)
@@ -30,6 +31,7 @@ api = Api(
 
 api.add_namespace(nbs_api, "/nbs")
 api.add_namespace(supermarkets_api, "/supermarkets")
+api.add_namespace(news_api, "/news")
 api.init_app(app)
 
 if __name__ == "__main__":
