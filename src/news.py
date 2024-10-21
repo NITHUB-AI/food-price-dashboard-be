@@ -39,13 +39,12 @@ class DayLevelSummary(Resource):
                 yesterday_str = yesterday.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) = '{yesterday_str}';""", conn)
                 
-                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
-                sub['dated_summary']=sub['date']+sub['article_body']
+                sub['date'] = sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary'] = sub['date'] + sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("".join(summaries))
+                    "summary": summarize("\n".join(summaries))
                         }
-                
             return json.dumps(result)
         except:
             return abort(400, "Error processing request")
@@ -68,11 +67,11 @@ class WeekLevelSummary(Resource):
                 last_week = datetime.today() - timedelta(days=8)
                 last_week_str = last_week.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) BETWEEN '{yesterday_str}' AND '{last_week_str}';""", conn)
-                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
-                sub['dated_summary']=sub['date']+sub['article_body']
+                sub['date'] = sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary'] = sub['date'] + sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("".join(summaries))
+                    "summary": summarize("\n".join(summaries))
                         }
             return json.dumps(result)
         except:
@@ -98,11 +97,11 @@ class MonthLevelSummary(Resource):
                 last_month_str = last_month.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) BETWEEN '{yesterday_str}' AND '{last_month_str}';""", conn)
                 
-                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
-                sub['dated_summary']=sub['date']+sub['article_body']
+                sub['date'] = sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary'] = sub['date'] + sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("".join(summaries))
+                    "summary": summarize("\n".join(summaries))
                         }
             return json.dumps(result)
         except:
