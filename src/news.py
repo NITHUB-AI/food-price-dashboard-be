@@ -45,7 +45,7 @@ class DayLevelSummary(Resource):
                 result = {
                     "summary": summarize("\n".join(summaries))
                         }
-            return json.dumps(result)
+            return jsonify({"summary": result["summary"]})
         except:
             return abort(400, "Error processing request")
 
@@ -73,7 +73,7 @@ class WeekLevelSummary(Resource):
                 result = {
                     "summary": summarize("\n".join(summaries))
                         }
-            return json.dumps(result)
+            return jsonify({"summary": result["summary"]})
         except:
             return abort(400, "Error processing request")
         
@@ -103,6 +103,6 @@ class MonthLevelSummary(Resource):
                 result = {
                     "summary": summarize("\n".join(summaries))
                         }
-            return json.dumps(result)
+            return jsonify({"summary": result["summary"]})
         except:
             return abort(400, "Error processing request")
