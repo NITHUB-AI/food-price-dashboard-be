@@ -38,10 +38,14 @@ class DayLevelSummary(Resource):
                 # Format the date as YYYY-MM-DD
                 yesterday_str = yesterday.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) = '{yesterday_str}';""", conn)
-                summaries = sub['article_summary'].tolist()
+                
+                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary']=sub['date']+sub['article_body']
+                summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("\n".join(summaries))
-                }
+                    "summary": summarize("".join(summaries))
+                        }
+                
             return json.dumps(result)
         except:
             return abort(400, "Error processing request")
@@ -64,10 +68,12 @@ class WeekLevelSummary(Resource):
                 last_week = datetime.today() - timedelta(days=8)
                 last_week_str = last_week.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) BETWEEN '{yesterday_str}' AND '{last_week_str}';""", conn)
-                summaries = sub['article_summary'].tolist()
+                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary']=sub['date']+sub['article_body']
+                summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("\n".join(summaries))
-                }
+                    "summary": summarize("".join(summaries))
+                        }
             return json.dumps(result)
         except:
             return abort(400, "Error processing request")
@@ -91,10 +97,13 @@ class MonthLevelSummary(Resource):
                 last_month = datetime.today() - timedelta(days=31)
                 last_month_str = last_month.strftime('%Y-%m-%d')
                 sub = pd.read_sql_query(f"""SELECT date, title, categories, article_summary FROM articles WHERE DATE(date) BETWEEN '{yesterday_str}' AND '{last_month_str}';""", conn)
-                summaries = sub['article_summary'].tolist()
+                
+                sub['date']=sub['date'].apply(lambda x:f"Date News was published: {str(x)}\n\nNews Summary:\n")
+                sub['dated_summary']=sub['date']+sub['article_body']
+                summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize("\n".join(summaries))
-                }
+                    "summary": summarize("".join(summaries))
+                        }
             return json.dumps(result)
         except:
             return abort(400, "Error processing request")
