@@ -6,8 +6,7 @@ import pandas as pd
 from flask import jsonify, request, abort
 from flask_restx import Resource, Namespace
 
-from src.summary_levels import summarize_gemini,summarize_gpt
-
+from src.summary_levels import summarize_gemini 
 from datetime import datetime, timedelta
 
 
@@ -19,6 +18,8 @@ def get_db_connection():
         password=os.getenv("PASSWORD"),
     )
     return conn
+
+
 
 api = Namespace("News", description="News summmary as related to real-world influence on food prices")
 
@@ -43,11 +44,11 @@ class DayLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gpt("".join(summaries))
+                    "summary": summarize_gemini("".join(summaries))
                         }
             return json.dumps(result)
-        except:
-            return abort(400, "Error processing request")
+        except Exception as err:
+            return abort(400, f"Error processing request: {err}")
 
 @api.route("/week-level-summary/")
 @api.doc(
@@ -71,7 +72,7 @@ class WeekLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gpt("".join(summaries))
+                    "summary": summarize_gemini("".join(summaries))
                         }
              
             return json.dumps(result)
@@ -101,7 +102,7 @@ class MonthLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gpt("".join(summaries))
+                    "summary": summarize_gemini("".join(summaries))
                         }
             return json.dumps(result)
         except:

@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+
 openai.api_key = os.getenv('AZURE_OPENAI_API_KEY')
 openai.api_base =  os.getenv('ENDPOINT')
 openai.api_type = 'azure' # Necessary for using the OpenAI library with Azure OpenAI
