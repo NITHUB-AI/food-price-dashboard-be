@@ -6,7 +6,7 @@ import pandas as pd
 from flask import jsonify, request, abort
 from flask_restx import Resource, Namespace
 
-from src.summary_levels import summarize_gemini
+from src.summary_levels import summarize_gemini,summarize_gpt
 
 from datetime import datetime, timedelta
 
@@ -43,7 +43,7 @@ class DayLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gemini("".join(summaries))
+                    "summary": summarize_gpt("".join(summaries))
                         }
             return json.dumps(result)
         except:
@@ -71,7 +71,7 @@ class WeekLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gemini("".join(summaries))
+                    "summary": summarize_gpt("".join(summaries))
                         }
              
             return json.dumps(result)
@@ -101,7 +101,7 @@ class MonthLevelSummary(Resource):
                 sub['dated_summary']=sub['date']+sub['article_body']
                 summaries = sub['dated_summary'].tolist()
                 result = {
-                    "summary": summarize_gemini("".join(summaries))
+                    "summary": summarize_gpt("".join(summaries))
                         }
             return json.dumps(result)
         except:
